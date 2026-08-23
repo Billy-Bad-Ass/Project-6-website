@@ -100,3 +100,55 @@ describe('escaping', () => {
     expect(esc('a<b&c')).toBe('a&lt;b&amp;c');
   });
 });
+
+describe('the animated mark', () => {
+  const html = renderHome();
+
+  it('animates in the hero and stays still in the masthead', () => {
+    // A logo looping in a sticky header sits in peripheral vision on every
+    // page. The hero is where the mark is the subject, so that is where it
+    // moves.
+    expect(html).toContain('class="mark hero-mark mark-animated"');
+    expect(html).toContain('class="mark"');
+    const mastheadMark = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+    expect(mastheadMark).toContain('<svg class="mark"');
+    expect(mastheadMark).not.toContain('mark-animated');
+  });
+
+  it("carries the kit's own per-bar delays, as cycle fractions", () => {
+    // From bba-logo-animated-*.svg. Both its variants use identical fractions
+    // (ambient/10s and active/3.6s), which is why --cycle alone switches speed.
+    for (const d of ['--d:0', '--d:-0.09', '--d:-0.27', '--d:-0.45', '--d:-0.72']) {
+      expect(html).toContain(d);
+    }
+  });
+
+  it('draws the travelling beam with the dash geometry from the kit', () => {
+    expect(html).toContain('pathLength="100"');
+    expect(html).toContain('stroke-dasharray="14 86"');
+  });
+
+  it('defines all three of the kit\'s loops', () => {
+    for (const name of ['mark-pulse', 'mark-beam', 'mark-node']) {
+      expect(STYLES, `@keyframes ${name} should exist`).toContain(`@keyframes ${name}`);
+    }
+  });
+
+  it('stops every loop under prefers-reduced-motion', () => {
+    // An infinitely looping logo is exactly what that setting is for.
+    const block = STYLES.slice(STYLES.indexOf('@media (prefers-reduced-motion: reduce)'));
+    expect(block).toContain('.mark-animated .bar');
+    expect(block).toContain('.mark-animated .mark-beam');
+    expect(block).toContain('.mark-animated .mark-node');
+    expect(block).toContain('animation: none');
+  });
+
+  it('takes the bar colour from a token defined in both themes', () => {
+    // The kit ships a light and a dark file differing only in this colour.
+    // Inlining with a token means one mark instead of two, but only if the
+    // token exists in both blocks — one defined solely in dark renders as an
+    // invalid colour in light and is silently dropped.
+    expect(STYLES.split('--mark-bar:').length - 1).toBeGreaterThanOrEqual(2);
+  });
+});
+

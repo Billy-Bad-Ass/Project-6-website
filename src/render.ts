@@ -31,32 +31,49 @@ export function esc(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** The waveform mark, inline so it inherits theme colours and can animate. */
+/**
+ * The waveform mark.
+ *
+ * Inlined rather than <img src="…animated.svg">, which is what the kit's README
+ * suggests. Those files reference the keyframes but never define them — only
+ * the HTML wrappers carry the @keyframes block — so an <img> embed renders a
+ * completely static logo. Inlining also lets the bars take a theme token
+ * instead of shipping a light copy and a dark copy.
+ *
+ * `animated` runs the kit's ambient loop; the timings live in src/styles.ts.
+ */
 function mark(className: string, animated = false): string {
-  // Coordinates copied from bba-mark-color-for-dark.svg. The mark is symmetric
-  // about y=48, which is where the blue signal line sits.
-  const greys: Array<[y: number, x1: number, x2: number]> = [
-    [20, 33.2, 54.8], [27, 22.6, 65.4], [34, 17.5, 70.5], [41, 14.8, 73.2],
-    [55, 14.8, 73.2], [62, 17.5, 70.5], [69, 22.6, 65.4], [76, 33.2, 54.8],
+  // Coordinates from bba-logo-animated-ambient-for-dark.svg. Symmetric about
+  // y=48, which is where the blue rail sits.
+  //
+  // The per-bar delays are the kit's own, expressed as a fraction of the cycle:
+  // its ambient (10s) and active (3.6s) files use identical fractions, so
+  // --cycle alone switches speed and nothing here has to change.
+  const bars: Array<[y: number, x1: number, x2: number, delay: number]> = [
+    [20, 33.2, 54.8, 0],
+    [27, 22.6, 65.4, -0.09],
+    [34, 17.5, 70.5, -0.18],
+    [41, 14.8, 73.2, -0.27],
+    [55, 14.8, 73.2, -0.45],
+    [62, 17.5, 70.5, -0.54],
+    [69, 22.6, 65.4, -0.63],
+    [76, 33.2, 54.8, -0.72],
   ];
 
-  const bars = greys
-    .map(([y, x1, x2]) => {
-      // Delay radiates outward from the centre line, so the signal reads as
-      // spreading from the blue bar rather than wiping across the mark.
-      const delay = animated
-        ? ` style="animation-delay:${(Math.abs(y - 48) * 7 + 120).toFixed(0)}ms"`
-        : '';
-      return `<line class="bar" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"${delay}/>`;
-    })
+  const lines = bars
+    .map(
+      ([y, x1, x2, d]) =>
+        `<line class="bar" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" style="--d:${d}"/>`,
+    )
     .join('');
 
-  const centreDelay = animated ? ' style="animation-delay:0ms"' : '';
+  const classes = ['mark', className, animated ? 'mark-animated' : ''].filter(Boolean).join(' ');
 
-  return `<svg class="${className}" viewBox="12 16 114 64" fill="none" role="img" aria-label="BBA Network" xmlns="http://www.w3.org/2000/svg">
-  <g stroke="currentColor" stroke-width="3.4" opacity=".42">${bars}</g>
-  <line class="bar" x1="14" y1="48" x2="112" y2="48" stroke="#2B5CE6" stroke-width="3.4"${centreDelay}/>
-  <rect class="bar" x="116" y="44" width="8" height="8" fill="#2B5CE6"${centreDelay}/>
+  return `<svg class="${classes}" viewBox="12 16 114 64" fill="none" role="img" aria-label="BBA Network" xmlns="http://www.w3.org/2000/svg">
+  <g class="mark-bars" stroke="currentColor" stroke-width="3.4">${lines}</g>
+  <line x1="14" y1="48" x2="112" y2="48" stroke="#2B5CE6" stroke-width="3.4"/>
+  <line class="mark-beam" x1="14" y1="48" x2="112" y2="48" stroke="var(--mark-beam)" stroke-width="3.4" pathLength="100" stroke-dasharray="14 86"/>
+  <rect class="mark-node" x="116" y="44" width="8" height="8" fill="#2B5CE6"/>
 </svg>`;
 }
 
