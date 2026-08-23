@@ -27,9 +27,10 @@ then `docs/DOMAINS.md` if you are touching anything to do with hosts.
 5. **Never touch Stripe from this repo.** The hub is a signpost. Money is taken
    on the businesses' own subdomains.
 
-6. **`src/icons.ts` is generated.** Run `npm run icons`; do not hand-edit. CI
-   regenerates and diffs it, because hand-copied SVG path data is unreviewable
-   and breaks the Font Awesome attribution in `NOTICE.md`.
+6. **All artwork is original, and stays that way.** Every mark, illustration
+   and icon is drawn in `src/motifs.ts`. Do not paste in a glyph from an icon
+   set: it brings its licence with it, and most require a visible credit on
+   every page it appears — which is exactly what was removed from the footer.
 
 ## Before you push
 

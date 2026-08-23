@@ -83,10 +83,10 @@ product cards, `bullet()` for lists. All derived from the mark — a bar, a line
 a square terminator — so a product illustration and the logo are visibly the
 same system.
 
-Icons are deliberately thin: four generic Font Awesome glyphs (arrow, envelope,
-lock, bolt). Anything representing a BBA product is drawn here instead. An icon
-font can only give you someone else's silhouettes, and "a printed reference
-card" is not among them.
+The interface icons are drawn here too — an arrow, an envelope, a lock, on a
+16-unit grid at the same stroke weight as the mark. They were Font Awesome
+under CC BY 4.0, which obliges a visible credit on every page; drawing four
+simple shapes was the cheaper trade. Nothing on the site is borrowed artwork.
 
 ## Rules
 
@@ -94,8 +94,10 @@ card" is not among them.
    entire point.
 2. **Do not add local CSS that overrides these tokens.** If a subdomain needs
    something the system does not have, add it here so all three get it.
-3. **Keep the Font Awesome attribution in the footer.** CC BY 4.0 requires it;
-   removing it is a licence violation, not a style decision.
+3. **Do not paste in a borrowed icon.** Everything here is original, which is
+   why no page carries a third-party credit. A glyph lifted from an icon set
+   brings its licence with it — and most of them require attribution on every
+   page it appears.
 4. **Both themes or neither.** A colour defined only in the dark block is a bug.
 
 ## Versioning

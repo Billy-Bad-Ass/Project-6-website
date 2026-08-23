@@ -76,10 +76,13 @@ describe('the subdomain templates', () => {
         expect(html).toContain('inter-latin-wght-normal.woff2');
       });
 
-      it('keeps the Font Awesome attribution its licence requires', async () => {
+      it('carries no third-party attribution', async () => {
+        // Icons are drawn in src/motifs.ts now, so nothing here is borrowed.
+        // A template that reintroduces a credit line has almost certainly
+        // reintroduced someone else's artwork with it.
         const html = await readFile(new URL(file, DIR), 'utf8');
-        expect(html).toContain('Font Awesome');
-        expect(html).toContain('CC BY 4.0');
+        expect(html).not.toContain('Font Awesome');
+        expect(html).not.toContain('CC BY');
       });
 
       it('uses the real support address', async () => {

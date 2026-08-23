@@ -9,8 +9,7 @@
 
 import { BUSINESSES, PUBLIC_BUSINESSES, APEX, SUPPORT_EMAIL, CONTACT_EMAIL } from './businesses';
 import type { Business } from './businesses';
-import { icon } from './icons';
-import { signalField, rule, bullet, CARD_ART } from './motifs';
+import { signalField, rule, bullet, icon, CARD_ART } from './motifs';
 import { STYLES } from './styles';
 
 /**
@@ -209,7 +208,7 @@ ${body}
     </div>
     <div class="colophon">
       <span>&copy; ${new Date().getUTCFullYear()} BBA Network</span>
-      <span>Icons by <a href="https://fontawesome.com/license/free">Font Awesome</a>, CC BY 4.0</span>
+      <span><a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></span>
     </div>
   </div>
 </footer>
@@ -232,7 +231,6 @@ export function renderHome(): string {
       This page is the index.
     </p>
     <div class="hero-meta">
-      <span>${icon('bolt')} Runs on Cloudflare&rsquo;s edge</span>
       <span>${icon('lock')} Payments handled by Stripe</span>
       <span>${icon('envelope')} <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></span>
     </div>
@@ -273,46 +271,85 @@ ${rule()}
 export function renderAbout(): string {
   const body = `
 <section class="section">
-  <div class="wrap prose">
-    <p class="eyebrow">About</p>
-    <h1>A holding page, honestly labelled.</h1>
+  <div class="wrap">
+    <div class="prose">
+    <p class="eyebrow">About BBA Network</p>
+    <h1>Small businesses. Useful products. Built with care.</h1>
+
+    <p class="lead">
+      BBA Network is a collection of independent businesses and products built to solve
+      specific problems well.
+    </p>
     <p>
-      BBA Network is a small portfolio of independent products. There is no agency, no team
-      page, and no roadmap deck. There is one person building things that are meant to be
-      finished rather than iterated forever.
+      Rather than trying to build one company that does everything, each business has its own
+      purpose, audience, and identity. That means you can find exactly what you&rsquo;re looking
+      for without sorting through a collection of things that don&rsquo;t apply to you.
     </p>
 
-    <h2>Why the businesses are separate</h2>
+    <h2>What we believe</h2>
     <p>
-      A printable espresso guide and a website audit share nothing — not a customer, not a
-      price, not a reason to trust them. Putting both behind one homepage forces every visitor
-      to work out which half of the page is for them. So each business gets its own subdomain,
-      its own checkout, and its own support address, and this page just points at them.
+      The internet is full of products that are overcomplicated, overpromised, and difficult
+      to use.
+    </p>
+    <p>We take a different approach.</p>
+    <p>
+      We build things that are clear, useful, straightforward, and worth paying for.
     </p>
     <p>
-      It also means one can fail without taking the other down. They deploy separately, from
-      separate repositories, onto separate Workers.
-    </p>
-
-    <h2>How it is built</h2>
-    <p>
-      Everything runs on Cloudflare Workers at the edge, with Stripe handling payments. This
-      hub is a few kilobytes of HTML with no client-side JavaScript and no analytics that
-      follows you anywhere. Outbound clicks are counted in aggregate — which business was
-      clicked, nothing about who clicked it.
+      That means putting time into the details that actually matter: making products easy to
+      understand, making the buying experience simple, and making sure customers can get help
+      when they need it.
     </p>
 
-    <h2>Contact</h2>
+    <h2>Different businesses, one standard</h2>
     <p>
-      Problem with something you bought: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.<br>
-      Anything else: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.
+      The businesses within BBA Network may be completely different from one another. What
+      connects them is the standard behind them.
     </p>
+    <p>Every product should:</p>
+    <ul class="checklist">
+      <li>${bullet()}<span>Have a clear reason to exist.</span></li>
+      <li>${bullet()}<span>Deliver what it promises.</span></li>
+      <li>${bullet()}<span>Be simple to purchase and use.</span></li>
+      <li>${bullet()}<span>Respect the customer&rsquo;s time and information.</span></li>
+      <li>${bullet()}<span>Be supported by a real person when help is needed.</span></li>
+    </ul>
+    <p>
+      Whether you&rsquo;re buying a digital product, using a service, or discovering something
+      new, the goal is the same: make it useful and make it worth your time.
+    </p>
+
+    <h2>Built for customers</h2>
+    <p>BBA Network is intentionally made up of independent businesses.</p>
+    <p>
+      Each one has its own website, products, support, and customer experience. This lets each
+      business stay focused on the people it serves instead of becoming part of a large,
+      complicated platform.
+    </p>
+    <p>You don&rsquo;t need to know how everything behind the scenes works.</p>
+    <p>
+      You just need to know that when you find something here that&rsquo;s useful to you,
+      there&rsquo;s a real business behind it and someone who cares about making it better.
+    </p>
+
+    <h2>Have a question?</h2>
+    <p>
+      If you have a question about a product or purchase, contact the business directly through
+      its support information.
+    </p>
+    <p>For general questions about BBA Network:</p>
+    <p class="contact-line">
+      <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>
+    </p>
+    </div>
   </div>
 </section>`;
 
   return layout({
     title: 'About — BBA Network',
-    description: 'What BBA Network is, why the businesses are separate, and how to get in touch.',
+    description:
+      'BBA Network is a collection of independent businesses and products built to solve ' +
+      'specific problems well. Different businesses, one standard.',
     path: '/about',
     body,
   });
@@ -321,13 +358,15 @@ export function renderAbout(): string {
 export function renderNotFound(): string {
   const body = `
 <section class="section">
-  <div class="wrap prose">
+  <div class="wrap">
+    <div class="prose">
     <p class="eyebrow">404</p>
     <h1>That page is not here.</h1>
     <p>
       If you followed a link to a product or a download, it has moved to its own site. The
       businesses are listed below.
     </p>
+    </div>
   </div>
   <div class="wrap" style="margin-top:2.5rem">
     <div class="cards">

@@ -64,9 +64,14 @@ describe('the home page', () => {
     expect(html).not.toContain(heartbeat.host);
   });
 
-  it('carries the Font Awesome attribution its licence requires', () => {
-    expect(html).toContain('Font Awesome');
-    expect(html).toContain('CC BY 4.0');
+  it('carries no third-party attribution, because every mark is drawn here', () => {
+    // The icons were Font Awesome under CC BY 4.0, which obliges a visible
+    // credit on every page. They are original now, so the credit is gone — and
+    // this asserts the two cannot come back separately. Re-introducing a
+    // borrowed glyph without its attribution is the failure to catch.
+    expect(html).not.toContain('Font Awesome');
+    expect(html).not.toContain('fontawesome');
+    expect(html).not.toContain('CC BY');
   });
 
   it('ships no JavaScript, which is what lets the CSP forbid it', () => {
@@ -149,6 +154,59 @@ describe('the animated mark', () => {
     // token exists in both blocks — one defined solely in dark renders as an
     // invalid colour in light and is silently dropped.
     expect(STYLES.split('--mark-bar:').length - 1).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('rendered markup is well-formed', () => {
+  // Nesting broke once already: `.prose` sets a max-width, and putting it on
+  // the same element as `.wrap` overrode the wrap's width so the whole column
+  // re-centred and stopped lining up with the masthead. Fixing it meant adding
+  // a nested div to three pages by hand, which is exactly the edit that leaves
+  // a tag unclosed.
+  const VOID = new Set([
+    'area', 'base', 'br', 'col', 'embed', 'hr', 'img',
+    'input', 'link', 'meta', 'source', 'track', 'wbr',
+  ]);
+
+  function findNestingError(html: string): string | null {
+    const stack: Array<{ tag: string; line: number }> = [];
+    const pattern = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?(\/?)>/g;
+    let m: RegExpExecArray | null;
+
+    while ((m = pattern.exec(html)) !== null) {
+      const [, closing, rawTag, selfClosing] = m;
+      const tag = rawTag!.toLowerCase();
+      if (VOID.has(tag) || selfClosing === '/') continue;
+      const line = html.slice(0, m.index).split('\n').length;
+
+      if (closing === '/') {
+        const top = stack.pop();
+        if (!top) return `line ${line}: </${tag}> with nothing open`;
+        if (top.tag !== tag) {
+          return `line ${line}: </${tag}> closes <${top.tag}> opened at line ${top.line}`;
+        }
+      } else {
+        stack.push({ tag, line });
+      }
+    }
+
+    const unclosed = stack[0];
+    return unclosed ? `<${unclosed.tag}> at line ${unclosed.line} is never closed` : null;
+  }
+
+  it.each([
+    ['home', renderHome],
+    ['about', renderAbout],
+    ['404', renderNotFound],
+  ])('%s', (_name, render) => {
+    expect(findNestingError(render())).toBeNull();
+  });
+
+  it('keeps the reading column inside .wrap rather than narrowing it', () => {
+    // `class="wrap prose"` is the regression: it re-centres the column.
+    for (const render of [renderAbout, renderNotFound]) {
+      expect(render()).not.toContain('class="wrap prose"');
+    }
   });
 });
 
