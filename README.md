@@ -16,11 +16,14 @@ that knows the whole set exists.
 
 ## The one thing to understand first
 
-**The store used to be this hostname.** Somewhere there is a customer holding a
-receipt with a link to `bbanetwork.org/api/download?token=…` that they have not
-clicked yet.
+**The store used to be this hostname.** Once it takes a sale, a customer holds a
+receipt with a link to `bbanetwork.org/api/download?token=…` and may not click it
+for months.
 
-`src/redirects.ts` is what keeps that link working. It is the highest-stakes
+The live Stripe account has taken no charges yet, so nothing is at risk today —
+which is precisely why the redirects are cheap to get right now rather than
+after the first customer cannot reach their file. `src/redirects.ts` is what
+keeps that link working. It is the highest-stakes
 file here, it is covered by unit tests, it is smoke-tested on every deploy, and
 an agent re-checks it against the live site every morning. Read the comment at
 the top of it before changing anything in it.

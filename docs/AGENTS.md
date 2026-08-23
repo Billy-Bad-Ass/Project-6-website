@@ -57,14 +57,21 @@ Valid `trigger`: `cron`, `manual`, `github`, `webhook`.
 fail a deploy that already succeeded, or bury a redirect failure behind a
 logging failure. Losing a log entry is a much smaller problem.
 
-### One thing to check on Project 4's side
+### Project 4's side
 
-`Project-4/config/portfolio.ts` has entries for `project-1` through
-`project-5`. There is no `project-6`, so runs posted with
-`"project_slug":"project-6"` arrive with a slug the dashboard does not know.
-The runs are still recorded — `agent_runs.project_slug` is a plain nullable
-column, not a foreign key — but they will not attach to a project page until
-that entry exists.
+`project-6` is registered in `Project-4/config/portfolio.ts` (on its
+`claude/audit-business` branch, PR #9), with `revenueModel: 'none'` — a visitor
+who buys an audit is project-1's revenue, and counting it here too would double
+it. Runs posted with `"project_slug":"project-6"` attach to a project page once
+that merges.
+
+Flagging Project 1's pivot to Project 4 also surfaced a bug in its own ledger:
+`reconcileStripe` attributed every charge to the first project with
+`revenueModel: 'stripe'`, which was correct with one seller and silently wrong
+with two — the $100 audit would have landed on the store's ROI permanently.
+That is fixed on the same branch. Worth knowing, because it is the reason the
+hub carries `portfolioSlug` on every business: the two sides must agree on names
+for any of this to reconcile.
 
 ## What an agent here must never do
 

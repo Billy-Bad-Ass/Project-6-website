@@ -2,11 +2,30 @@
  * Legacy apex paths.
  *
  * The store used to BE `bbanetwork.org`. Moving it to `guides.bbanetwork.org`
- * means every URL a customer bookmarked, every link Google has indexed, and —
- * the dangerous one — every download link already sitting in a paying
- * customer's inbox now points at a host that no longer serves the store.
+ * means every URL a customer bookmarked, every link Google has indexed, and
+ * every download link in a sent receipt now points at a host that no longer
+ * serves the store.
  *
- * None of those may break. This module is what keeps that promise.
+ * ## How much this currently protects
+ *
+ * Be honest about it: at the time of writing the live Stripe account has taken
+ * no charges, so nobody is holding a store download link yet, and the store has
+ * no accumulated search authority for a 301 to carry. Project 4 read the same
+ * facts and concluded a redirect layer protects nothing today. That is a fair
+ * reading of today.
+ *
+ * It is kept anyway, for two reasons that outlast today:
+ *
+ *   - The window this covers opens on the first sale, not on the deploy. A
+ *     download link lives in an inbox for months. Adding these rules costs a
+ *     few lines and one test file; adding them *after* the first customer
+ *     cannot reach their file costs a refund and the trust behind it.
+ *   - `HUB_OWNED` below is load-bearing regardless of sales: without it the
+ *     hub forwards its own `/api/health` to the store, and Project 4's watchdog
+ *     silently monitors the wrong service.
+ *
+ * So this module is insurance, not a live rescue. Do not weaken it on the
+ * grounds that nothing has broken yet — that is the point of insurance.
  *
  * ## Why two different status codes
  *

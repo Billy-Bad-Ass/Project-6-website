@@ -1,11 +1,15 @@
 /**
- * These tests exist because of one specific failure.
+ * These tests exist because of one specific failure mode.
  *
- * The store used to be `bbanetwork.org`. Somewhere out there is a customer who
- * paid, got an email with a signed link to `bbanetwork.org/api/download?token=…`,
- * and has not clicked it yet. If moving the apex breaks that link, they paid
+ * The store used to be `bbanetwork.org`. Once it has taken a sale, a customer
+ * holds an email with a signed link to `bbanetwork.org/api/download?token=…`
+ * and may not click it for months. If the apex move breaks that link, they paid
  * for a file they cannot get, and the first you hear about it is a refund
  * request — or, more likely, silence.
+ *
+ * The live account has taken no charges yet, so nothing is currently at risk.
+ * That is exactly why this is cheap to get right now: the rules and their tests
+ * cost minutes today and are already in place when the first sale lands.
  *
  * So: the download path, the method preservation, and the query string are all
  * asserted rather than assumed.

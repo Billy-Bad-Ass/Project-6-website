@@ -26,7 +26,19 @@ homepage that has to sell both an espresso guide and a website audit sells
 neither. The cost is paid down by `src/redirects.ts`, which moves every store
 URL — and its search authority — to `guides.` with a `301`.
 
-If that trade turns out to be wrong, it is reversible: point the apex at the
+Project 4 has since agreed the apex should become a brand hub with the
+businesses on subdomains, with one dissent: it argues **no redirect layer is
+needed**, because the store has no accumulated search authority yet, so a 301
+protects nothing.
+
+That is true of SEO today, and it is why the redirects are framed as insurance
+rather than a rescue (see the comment at the top of `src/redirects.ts`). They
+are kept because the window they cover opens on the *first sale*, not on this
+deploy — a download link lives in an inbox for months — and because `HUB_OWNED`
+in that same file is what stops the hub forwarding its own `/api/health` to the
+store and leaving Project 4's watchdog monitoring the wrong service.
+
+If the trade turns out to be wrong, it is reversible: point the apex at the
 store's Worker and move this hub to `network.bbanetwork.org`. Nothing else in
 this repo assumes otherwise.
 
@@ -56,18 +68,22 @@ charged and no download link is sent.
 The `308` in `src/redirects.ts` is a safety net for *browser* traffic — download
 links, checkout returns — not for Stripe. It does not remove this step.
 
-### 2. Set up Email Routing, and fix the dead support address
+### 2. Set up Email Routing, so the support address actually receives
 
-Project 2's `catalog/products.json` sets:
+Project 2 sends buyers to `support@bbanetwork.org` — its `catalog/products.json`
+and `catalog/generated.json` both read that correctly on `main`.
 
-```json
-"supportEmail": "support@bba.network"
-```
+*(An earlier draft of this file claimed Project 2 still used `support@bba.network`,
+a different domain. That was taken from Project 4's `docs/DOMAINS.md`, which had
+not caught up with a fix already merged in Project 2. Verified against Project 2
+directly: it is correct. Noted here because the wrong version of this claim was
+acted on once already.)*
 
-That is **`bba.network`** — a different domain from `bbanetwork.org`. Unless you
-own it, every support email from a paying customer goes nowhere, silently. On a
-storefront whose entire delivery mechanism is a signed download link, the support
-address is the only channel a buyer has when something fails.
+The address being right in code is only half of it. **Mail to it still goes
+nowhere until Email Routing exists** — there is no mailbox at that domain by
+default. On a storefront whose entire delivery mechanism is a signed download
+link, the support address is the only channel a buyer has when something fails,
+so this is worth doing before the first sale rather than after.
 
 Cloudflare Email Routing is free and forwards to an inbox you already have.
 
@@ -83,9 +99,8 @@ Cloudflare adds the MX and SPF records itself. It only *receives* — sending as
 `support@bbanetwork.org` needs a mail provider, and Gmail's "send as" over SMTP
 is the cheap way to do that later.
 
-Then fix the address in Project 2. This repo already uses
-`support@bbanetwork.org` (`src/businesses.ts`), so the hub and the store will
-disagree until Project 2 is updated.
+The hub uses the same address (`src/businesses.ts`), so once routing exists the
+hub and the store agree.
 
 ### 3. Point `guides.` at the store, and check it works
 
