@@ -33,9 +33,25 @@ jobs:
       - name: Check the paths a paying customer depends on
         id: probe
         run: |
-          BASE="${SITE_URL:-https://bbanetwork.org}"
+          BASE="${SITE_URL:-$FALLBACK_URL}"
           STORE="https://guides.bbanetwork.org"
           FAILURES=""
+
+          # Check we are probing this hub before asserting anything about it.
+          # The apex still serves Project 2's store until the custom domain is
+          # moved by hand, and a guard that reports the store's answers as this
+          # repo's failures would open an urgent issue every morning about
+          # nothing. An agent that cries wolf daily is worse than no agent.
+          HEALTH=$(curl -sf --max-time 20 "$BASE/api/health" || echo '')
+          case "$HEALTH" in
+            *'"service":"bba-network-hub"'*) ;;
+            *)
+              echo "skipped=true" >> "$GITHUB_OUTPUT"
+              echo "failed=false" >> "$GITHUB_OUTPUT"
+              echo "::notice title=Nothing to guard yet::$BASE is not serving this hub, so its redirects are not in play. Expected until the apex is attached — see docs/DOMAINS.md."
+              exit 0
+              ;;
+          esac
 
           # path | expected status | expected redirect prefix
           check() {
@@ -86,6 +102,7 @@ jobs:
           fi
         env:
           SITE_URL: ${{ vars.SITE_URL }}
+          FALLBACK_URL: https://bba-network-hub.bbacentralworkspace.workers.dev
 
       - name: Investigate and report
         if: steps.probe.outputs.failed == 'true'
@@ -109,13 +126,17 @@ jobs:
             --allowed-tools Read,Bash,Grep,Glob,WebFetch
         env:
           SITE_URL: ${{ vars.SITE_URL }}
+          FALLBACK_URL: https://bba-network-hub.bbacentralworkspace.workers.dev
 
       - name: Report the run
         if: always()
         run: |
           STATUS="ok"
           SUMMARY="Legacy customer paths all redirect correctly."
-          if [ "${{ steps.probe.outputs.failed }}" = "true" ]; then
+          if [ "${{ steps.probe.outputs.skipped }}" = "true" ]; then
+            STATUS="skipped"
+            SUMMARY="Hub is not serving the probed host yet; nothing to guard."
+          elif [ "${{ steps.probe.outputs.failed }}" = "true" ]; then
             STATUS="failed"
             SUMMARY="Legacy redirect check FAILED — customer download links may be broken."
           fi

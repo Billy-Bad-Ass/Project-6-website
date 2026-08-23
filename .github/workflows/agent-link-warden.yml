@@ -30,14 +30,31 @@ jobs:
       - name: Probe every host in the register
         id: probe
         run: |
-          BASE="${SITE_URL:-https://bbanetwork.org}"
+          BASE="${SITE_URL:-$FALLBACK_URL}"
           PROBLEMS=""
+
+          # Identity BEFORE reachability, and the order matters. Until the apex
+          # is attached it serves Project 2's store, which has no /api/stats at
+          # all — so a plain "did /api/stats answer?" check fails on the 404 and
+          # reports the hub as down, opening an issue every morning about
+          # nothing. Ask what is serving first, and say so plainly if it is not
+          # us.
+          HEALTH=$(curl -sf --max-time 20 "$BASE/api/health" || echo '')
+          case "$HEALTH" in
+            *'"service":"bba-network-hub"'*) ;;
+            *)
+              echo "skipped=true" >> "$GITHUB_OUTPUT"
+              echo "problems=" >> "$GITHUB_OUTPUT"
+              echo "::notice title=Nothing to warden yet::$BASE is not serving this hub, so its register is not in play. Expected until the apex is attached — see docs/DOMAINS.md."
+              exit 0
+              ;;
+          esac
 
           # The register is the source of truth, read straight off the live
           # site rather than the repo — what is deployed is what customers hit.
           if ! STATS=$(curl -sf --max-time 25 "$BASE/api/stats"); then
             echo "problems=hub-unreachable" >> "$GITHUB_OUTPUT"
-            echo "detail=The hub itself did not answer at $BASE/api/stats." >> "$GITHUB_OUTPUT"
+            echo "detail=The hub answered /api/health but not /api/stats at $BASE." >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -56,6 +73,7 @@ jobs:
           echo "detail=$PROBLEMS" >> "$GITHUB_OUTPUT"
         env:
           SITE_URL: ${{ vars.SITE_URL }}
+          FALLBACK_URL: https://bba-network-hub.bbacentralworkspace.workers.dev
 
       - name: Investigate and report
         if: steps.probe.outputs.problems != ''
@@ -79,13 +97,17 @@ jobs:
             --allowed-tools Read,Bash,Grep,Glob,WebFetch
         env:
           SITE_URL: ${{ vars.SITE_URL }}
+          FALLBACK_URL: https://bba-network-hub.bbacentralworkspace.workers.dev
 
       - name: Report the run
         if: always()
         run: |
           STATUS="ok"
           SUMMARY="All live hosts in the register answered."
-          if [ -n "${{ steps.probe.outputs.problems }}" ]; then
+          if [ "${{ steps.probe.outputs.skipped }}" = "true" ]; then
+            STATUS="skipped"
+            SUMMARY="Hub is not serving the probed host yet; nothing to check."
+          elif [ -n "${{ steps.probe.outputs.problems }}" ]; then
             STATUS="failed"
             SUMMARY="Unreachable: ${{ steps.probe.outputs.detail }}"
           fi
