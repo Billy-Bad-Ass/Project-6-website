@@ -44,6 +44,26 @@ Deploying is a push to `main`. The workflow gates on the test suite, deploys,
 then smoke-tests the live apex — including that download redirect — and fails
 the run if it is wrong.
 
+### Before the first deploy can work
+
+Two repository secrets, under **Settings → Secrets and variables → Actions**:
+
+| Secret | Where it comes from |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → Create Token → **Edit Cloudflare Workers** template |
+| `CLOUDFLARE_ACCOUNT_ID` | The account id shown on any domain's overview page in the Cloudflare dashboard |
+
+Without them the deploy fails at the authentication step — the workflow checks
+first and says exactly which one is missing rather than letting Wrangler fail
+with a message about non-interactive environments.
+
+Two more are optional, and only affect whether runs show up in Project 4's
+console: `DASHBOARD_URL` and `DASHBOARD_TOKEN`. Every reporting step ends in
+`|| true`, so their absence is a warning, never a failed deploy.
+
+`CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) is needed only by the agent
+workflows — see [`docs/AGENTS.md`](docs/AGENTS.md).
+
 ## Layout
 
 | Path | What it is |
