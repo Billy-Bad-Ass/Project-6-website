@@ -1,0 +1,192 @@
+<!doctype html>
+<!--
+  audit.bbanetwork.org — the Website Health Check.
+
+  A template for Project 1, not a page this repository deploys. Project 1
+  already builds this site from its own templates (audit/src/pipeline/build-web.ts,
+  driven by STRIPE_PAYMENT_LINK) — this is the same page in the network's
+  design, so adopting it is a matter of pointing that builder at these markup
+  patterns and the shared stylesheet.
+
+  Replace STRIPE_PAYMENT_LINK below with the real Payment Link.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Website Health Check — a plain-English review of what's costing you customers</title>
+<meta name="description" content="A human reads your website and tells you what is broken, what each problem costs you in lost customers, and exactly how to fix it. $100, delivered within one working day.">
+<link rel="canonical" href="https://audit.bbanetwork.org/">
+<meta name="theme-color" content="#0B0F16" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FAFAF8" media="(prefers-color-scheme: light)">
+<link rel="icon" href="https://bbanetwork.org/assets/svg/bba-favicon.svg" type="image/svg+xml">
+
+<link rel="stylesheet" href="https://bbanetwork.org/brand/v1.css">
+<link rel="preload" href="https://bbanetwork.org/fonts/space-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="https://bbanetwork.org/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="masthead">
+  <div class="wrap">
+    <a class="brand" href="https://bbanetwork.org/">
+      <svg viewBox="12 16 114 64" fill="none" role="img" aria-label="BBA Network" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="currentColor" stroke-width="3.4" opacity=".42">
+          <line x1="33.2" y1="20" x2="54.8" y2="20"/><line x1="22.6" y1="27" x2="65.4" y2="27"/>
+          <line x1="17.5" y1="34" x2="70.5" y2="34"/><line x1="14.8" y1="41" x2="73.2" y2="41"/>
+          <line x1="14.8" y1="55" x2="73.2" y2="55"/><line x1="17.5" y1="62" x2="70.5" y2="62"/>
+          <line x1="22.6" y1="69" x2="65.4" y2="69"/><line x1="33.2" y1="76" x2="54.8" y2="76"/>
+        </g>
+        <line x1="14" y1="48" x2="112" y2="48" stroke="#2B5CE6" stroke-width="3.4"/>
+        <rect x="116" y="44" width="8" height="8" fill="#2B5CE6"/>
+      </svg>
+      <span class="brand-name">Health <span class="thin">Check</span></span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="#what">What you get</a>
+      <a href="#how">How it works</a>
+      <a href="https://bbanetwork.org/">Network</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero compact">
+    <div class="wrap">
+      <p class="eyebrow">Website Health Check</p>
+      <h1>Find out what your website is costing you.</h1>
+      <p class="lede">
+        A human reads your site the way a customer would, then writes down what is broken,
+        what each problem costs you in lost business, and exactly how to fix it.
+        No dashboard to learn. No jargon. One working day.
+      </p>
+      <a class="buy" href="STRIPE_PAYMENT_LINK">Get the health check — $100</a>
+      <div class="reassure">
+        <span>Delivered in one working day</span>
+        <span>Written by a person, not a scanner</span>
+        <span>Refunded if it is not useful</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="what">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What you get</p>
+        <h2>A report you can act on the same afternoon</h2>
+        <p>Not a 90-page automated scan with 400 warnings and no priority. A short document that names the problems in the order they are costing you money.</p>
+      </div>
+
+      <div class="cards">
+        <article class="card">
+          <div class="card-body">
+            <h3>Every issue, ranked by cost</h3>
+            <p class="blurb">Not by severity score. By how many customers it is losing you — because that is the only ordering that tells you what to fix first.</p>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-body">
+            <h3>Plain English</h3>
+            <p class="blurb">Written so you can read it. If a fix needs a developer, it is written so you can forward it to one without translating anything.</p>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-body">
+            <h3>The specific fix</h3>
+            <p class="blurb">Not "improve your page speed". Which image, how large it is, what it should be, and what that will change.</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="how">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">How it works</p>
+        <h2>Three steps, one day</h2>
+      </div>
+      <ol class="steps">
+        <li>
+          <h3>Pay and send your URL</h3>
+          <p>Checkout takes a minute. You give the address of the site and anything you already suspect is wrong.</p>
+        </li>
+        <li>
+          <h3>A person reads it</h3>
+          <p>Your actual site, on a phone and on a desktop, the way a customer arrives at it.</p>
+        </li>
+        <li>
+          <h3>You get the report</h3>
+          <p>By email, within one working day. Ranked, specific, and yours to hand to whoever does the work.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="narrow">
+      <div class="section-head">
+        <p class="eyebrow">Questions</p>
+        <h2>Before you buy</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Is this just an automated scan?</summary>
+          <p>No. Automated tools are part of the process — they are good at measuring things — but the report is written by a person who looked at your site. A scanner cannot tell you that your pricing page does not say what you sell.</p>
+        </details>
+        <details>
+          <summary>What if my site is already fine?</summary>
+          <p>Then the report says so, names the few things worth doing anyway, and you get your money back. Charging $100 to say "looks good" is not a business worth running.</p>
+        </details>
+        <details>
+          <summary>Do you fix the problems too?</summary>
+          <p>Not as part of this. The report is written so your developer can act on it directly. If you would rather it were done for you, reply to the report and we can talk about it.</p>
+        </details>
+        <details>
+          <summary>How fast is "one working day"?</summary>
+          <p>Ordered on a Tuesday morning, you have it by Wednesday. Ordered on a Friday evening, you have it by Monday.</p>
+        </details>
+      </div>
+
+      <div style="margin-top:2.5rem">
+        <a class="buy" href="STRIPE_PAYMENT_LINK">Get the health check — $100</a>
+      </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h4>Health Check</h4>
+        <ul>
+          <li><a href="#what">What you get</a></li>
+          <li><a href="#how">How it works</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Support</h4>
+        <ul>
+          <li><a href="mailto:support@bbanetwork.org">support@bbanetwork.org</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Network</h4>
+        <ul>
+          <li><a href="https://bbanetwork.org/">BBA Network</a></li>
+          <li><a href="https://guides.bbanetwork.org/">BBA Guides</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="colophon">
+      <span>&copy; 2026 BBA Network</span>
+      <span>Icons by <a href="https://fontawesome.com/license/free">Font Awesome</a>, CC BY 4.0</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

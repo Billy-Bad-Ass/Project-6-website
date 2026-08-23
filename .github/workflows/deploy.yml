@@ -1,0 +1,80 @@
+name: Deploy
+
+# The hub is the apex. A broken deploy here does not just break a marketing
+# page — it breaks the redirects that carry paying customers to their
+# downloads. So the tests are a gate, not a parallel job.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Gate on the test suite
+        run: npm run check
+
+      - name: Deploy
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Prove the thing that just deployed actually answers, rather than
+      # trusting a green deploy step. Checks the worker's own health endpoint
+      # and one legacy redirect, because that redirect is the promise that
+      # matters most and it is the one a refactor would quietly break.
+      - name: Smoke-test the deployment
+        run: |
+          BASE="${SITE_URL:-https://bbanetwork.org}"
+
+          echo "→ $BASE/api/health"
+          curl -sf --max-time 20 "$BASE/api/health" | tee /tmp/health.json
+          grep -q '"ok": *true' /tmp/health.json
+
+          echo "→ $BASE/api/download (must redirect to the store, method-preserving)"
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE/api/download?token=smoke")
+          LOC=$(curl -s -o /dev/null -w '%{redirect_url}' --max-time 20 "$BASE/api/download?token=smoke")
+          echo "  $CODE → $LOC"
+          [ "$CODE" = "308" ] || { echo "::error::Expected 308, got $CODE. Customer download links are at risk."; exit 1; }
+          case "$LOC" in
+            https://guides.bbanetwork.org/api/download*) ;;
+            *) echo "::error::Redirect target is wrong: $LOC"; exit 1 ;;
+          esac
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+
+      # Report into Project 4's console. `|| true` because losing a log entry
+      # must never fail a deploy that already succeeded.
+      - name: Report the run
+        if: always()
+        run: |
+          curl -sf -X POST "$DASHBOARD_URL/api/agent-runs" \
+            -H "Authorization: Bearer $DASHBOARD_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "{\"agent\":\"deploy\",\"project_slug\":\"project-6\",\"trigger\":\"github\",
+                 \"status\":\"${{ job.status == 'success' && 'ok' || 'failed' }}\",
+                 \"summary\":\"Apex hub deploy from ${GITHUB_SHA:0:7}.\",
+                 \"artifact_url\":\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
+            || true
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}

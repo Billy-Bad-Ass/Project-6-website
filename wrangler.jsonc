@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bba-network-hub",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-15",
+
+  // The workers.dev URL stays on until the custom domain is verified working.
+  // Turning it off before then leaves no way to reach the Worker if the DNS
+  // step goes wrong. See docs/DOMAINS.md.
+  "workers_dev": true,
+
+  // NOTE: there is deliberately no "routes" block. A routes entry makes the
+  // deploy responsible for creating DNS records, and the deploy token does not
+  // hold that permission — adding one here turns every deploy into a failure.
+  // The apex is attached in the Cloudflare dashboard instead, once.
+
+  "observability": { "enabled": true },
+
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  "kv_namespaces": [
+    {
+      // Aggregate outbound click counts. Nothing per-visitor is stored.
+      "binding": "CLICKS",
+      "id": "42574665e5314f62badd3e25002c7c78"
+    }
+  ]
+}

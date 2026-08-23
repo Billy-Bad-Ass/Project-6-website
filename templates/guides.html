@@ -1,0 +1,215 @@
+<!doctype html>
+<!--
+  guides.bbanetwork.org — the store.
+
+  A template for Project 2, not a page this repository deploys. Copy it, wire
+  the buy buttons to real Stripe Checkout sessions, and replace the cover
+  images. The look comes entirely from the one stylesheet linked below: nothing
+  here is styled locally, so a change to the network's design reaches this page
+  without Project 2 redeploying.
+
+  See docs/BRAND.md in Project 6 for the components this uses.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BBA Guides — printable reference guides that actually fix the problem</title>
+<meta name="description" content="One page, one problem. Printable troubleshooting guides for espresso, mechanical keyboards and miniature painting. A4 and US Letter, instant download.">
+<link rel="canonical" href="https://guides.bbanetwork.org/">
+<meta name="theme-color" content="#0B0F16" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FAFAF8" media="(prefers-color-scheme: light)">
+<link rel="icon" href="https://bbanetwork.org/assets/svg/bba-favicon.svg" type="image/svg+xml">
+
+<!-- The whole design system. One line. -->
+<link rel="stylesheet" href="https://bbanetwork.org/brand/v1.css">
+<link rel="preload" href="https://bbanetwork.org/fonts/space-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="https://bbanetwork.org/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="masthead">
+  <div class="wrap">
+    <a class="brand" href="https://bbanetwork.org/">
+      <svg viewBox="12 16 114 64" fill="none" role="img" aria-label="BBA Network" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="currentColor" stroke-width="3.4" opacity=".42">
+          <line x1="33.2" y1="20" x2="54.8" y2="20"/><line x1="22.6" y1="27" x2="65.4" y2="27"/>
+          <line x1="17.5" y1="34" x2="70.5" y2="34"/><line x1="14.8" y1="41" x2="73.2" y2="41"/>
+          <line x1="14.8" y1="55" x2="73.2" y2="55"/><line x1="17.5" y1="62" x2="70.5" y2="62"/>
+          <line x1="22.6" y1="69" x2="65.4" y2="69"/><line x1="33.2" y1="76" x2="54.8" y2="76"/>
+        </g>
+        <line x1="14" y1="48" x2="112" y2="48" stroke="#2B5CE6" stroke-width="3.4"/>
+        <rect x="116" y="44" width="8" height="8" fill="#2B5CE6"/>
+      </svg>
+      <span class="brand-name">BBA <span class="thin">Guides</span></span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="#guides">Guides</a>
+      <a href="#how">How it works</a>
+      <a href="https://bbanetwork.org/">Network</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero compact">
+    <div class="wrap">
+      <p class="eyebrow">Printable reference</p>
+      <h1>The answer, on one page, next to the machine.</h1>
+      <p class="lede">
+        No login. No app. No fifty-minute video with the fix at minute forty-one.
+        Buy it, print it, and put it where the problem happens.
+      </p>
+      <a class="buy" href="#guides">See the guides</a>
+      <div class="reassure">
+        <span>A4 and US Letter</span>
+        <span>Instant download</span>
+        <span>Yours to keep and reprint</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="guides">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">The guides</p>
+        <h2>Each one fixes a specific problem</h2>
+        <p>Written because the existing advice was either wrong, buried, or assumed equipment you do not own.</p>
+      </div>
+
+      <div class="products">
+        <article class="product">
+          <div class="product-cover">
+            <!-- Replace with the real cover: /covers/espresso-dial-in-card-cover-1.png -->
+            <img src="https://bbanetwork.org/assets/svg/bba-mark-color-for-dark.svg" alt="Espresso Dial-In Troubleshooting Card cover">
+          </div>
+          <div class="product-body">
+            <h3>Espresso Dial-In Card</h3>
+            <p class="meta">6 pages · PDF</p>
+            <p>Sour, bitter, or both at once — what each one means and what to change. Includes a dial-in log so you can find your way back to a shot that worked.</p>
+            <div class="product-foot">
+              <span class="amount">£6</span>
+              <a class="buy" href="/api/checkout?sku=espresso-dial-in-card">Buy</a>
+            </div>
+          </div>
+        </article>
+
+        <article class="product">
+          <div class="product-cover">
+            <img src="https://bbanetwork.org/assets/svg/bba-mark-color-for-dark.svg" alt="Keyboard Sound &amp; Mod Chart cover">
+          </div>
+          <div class="product-body">
+            <h3>Keyboard Sound &amp; Mod Chart</h3>
+            <p class="meta">6 pages · PDF</p>
+            <p>Every common mod rated for effect, reliability, reversibility and cost — so you can tell which ones are worth the afternoon.</p>
+            <div class="product-foot">
+              <span class="amount">£6</span>
+              <a class="buy" href="/api/checkout?sku=keyboard-sound-mod-chart">Buy</a>
+            </div>
+          </div>
+        </article>
+
+        <article class="product">
+          <div class="product-cover">
+            <img src="https://bbanetwork.org/assets/svg/bba-mark-color-for-dark.svg" alt="Miniature Speed-Paint Recipe Sheet cover">
+          </div>
+          <div class="product-body">
+            <h3>Miniature Speed-Paint Sheet</h3>
+            <p class="meta">8 pages · PDF</p>
+            <p>The slapchop method with eight army colour recipes. Tabletop standard, whole units, no airbrush required.</p>
+            <div class="product-foot">
+              <span class="amount">£7</span>
+              <a class="buy" href="/api/checkout?sku=miniature-speedpaint-recipe-sheet">Buy</a>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="how">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">How it works</p>
+        <h2>Three steps, no account</h2>
+      </div>
+      <ol class="steps">
+        <li>
+          <h3>Pay</h3>
+          <p>Card or Apple Pay through Stripe. Nothing to sign up for, and no password to forget.</p>
+        </li>
+        <li>
+          <h3>Download</h3>
+          <p>A link appears immediately and lands in your email. Both paper sizes are in the same download.</p>
+        </li>
+        <li>
+          <h3>Print it</h3>
+          <p>Put it next to the machine. Reprint it whenever you like — it is yours.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="narrow">
+      <div class="section-head">
+        <p class="eyebrow">Questions</p>
+        <h2>Before you buy</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>What exactly do I get?</summary>
+          <p>A PDF in both A4 and US Letter, in one download. Designed to be printed in black and white on ordinary paper and still be readable.</p>
+        </details>
+        <details>
+          <summary>Do I need an account?</summary>
+          <p>No. Payment goes through Stripe and the download link is sent to the email address you enter at checkout.</p>
+        </details>
+        <details>
+          <summary>My download link stopped working.</summary>
+          <p>Links expire for security, not to make you buy again. Email <a href="mailto:support@bbanetwork.org">support@bbanetwork.org</a> from the address you bought with and you will get a fresh one.</p>
+        </details>
+        <details>
+          <summary>Can I get a refund?</summary>
+          <p>Yes. If it did not help, say so within 30 days and you will get your money back. You do not have to send the file back — you cannot un-read it, and pretending otherwise would be theatre.</p>
+        </details>
+      </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h4>Guides</h4>
+        <ul>
+          <li><a href="#guides">All guides</a></li>
+          <li><a href="/licence">Licence</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Support</h4>
+        <ul>
+          <li><a href="mailto:support@bbanetwork.org">support@bbanetwork.org</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Network</h4>
+        <ul>
+          <li><a href="https://bbanetwork.org/">BBA Network</a></li>
+          <li><a href="https://audit.bbanetwork.org/">Website Health Check</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="colophon">
+      <span>&copy; 2026 BBA Network</span>
+      <span>Icons by <a href="https://fontawesome.com/license/free">Font Awesome</a>, CC BY 4.0</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
