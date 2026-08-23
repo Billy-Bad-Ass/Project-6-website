@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # The icon file is generated from the Font Awesome package. If someone
+      # hand-edits src/icons.ts, or bumps the package without regenerating, the
+      # committed path data silently stops matching the licence it is
+      # attributed under. Regenerating and diffing is the cheap way to catch it.
+      - name: Icons are the generated ones
+        run: |
+          npm run icons
+          if ! git diff --quiet -- src/icons.ts; then
+            echo "::error::src/icons.ts is not what scripts/generate-icons.mjs produces. Run 'npm run icons' and commit."
+            git diff -- src/icons.ts
+            exit 1
+          fi
+
+      # A dry-run build catches anything that typechecks but will not bundle —
+      # the class of failure that otherwise only shows up mid-deploy.
+      - name: Build
+        run: npx wrangler deploy --dry-run --outdir /tmp/build

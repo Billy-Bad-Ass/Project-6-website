@@ -1,0 +1,101 @@
+name: Agent · Link warden
+
+# The hub's only real claim is "these businesses exist and here is where they
+# are". That claim rots silently: a subdomain gets detached, a Worker is
+# renamed, a business is marked `live` in the register before its host actually
+# resolves. Nothing else in the portfolio checks it, because nothing else knows
+# what the register promised.
+on:
+  schedule:
+    - cron: '20 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-link-warden
+  cancel-in-progress: true
+
+jobs:
+  warden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Cheap deterministic probe first. An agent run costs minutes and money;
+      # curl costs neither, and on a healthy day this job stops right here.
+      - name: Probe every host in the register
+        id: probe
+        run: |
+          BASE="${SITE_URL:-https://bbanetwork.org}"
+          PROBLEMS=""
+
+          # The register is the source of truth, read straight off the live
+          # site rather than the repo — what is deployed is what customers hit.
+          if ! STATS=$(curl -sf --max-time 25 "$BASE/api/stats"); then
+            echo "problems=hub-unreachable" >> "$GITHUB_OUTPUT"
+            echo "detail=The hub itself did not answer at $BASE/api/stats." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Only `live` businesses are promises. `building` is allowed to 404.
+          while read -r id host status; do
+            [ "$status" = "live" ] || continue
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/" || echo 000)
+            echo "$id ($host) → $CODE"
+            case "$CODE" in
+              2*|3*) ;;
+              *) PROBLEMS="$PROBLEMS $id=$host:$CODE" ;;
+            esac
+          done < <(echo "$STATS" | jq -r '.businesses[] | "\(.id) \(.host) \(.status)"')
+
+          echo "problems=${PROBLEMS# }" >> "$GITHUB_OUTPUT"
+          echo "detail=$PROBLEMS" >> "$GITHUB_OUTPUT"
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+
+      - name: Investigate and report
+        if: steps.probe.outputs.problems != ''
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Prefer the subscription token when present: the action gives an API
+          # key precedence when both are set, so the key is blanked instead.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            Use the `link-warden` subagent.
+
+            The probe found these problems: ${{ steps.probe.outputs.detail }}
+
+            Search for an existing OPEN issue labelled `ops` about the same host
+            before opening anything. If one exists, comment on it with today's
+            reading instead of opening a second — this runs daily and duplicate
+            issues bury the real ones.
+          claude_args: |
+            --allowed-tools Read,Bash,Grep,Glob,WebFetch
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+
+      - name: Report the run
+        if: always()
+        run: |
+          STATUS="ok"
+          SUMMARY="All live hosts in the register answered."
+          if [ -n "${{ steps.probe.outputs.problems }}" ]; then
+            STATUS="failed"
+            SUMMARY="Unreachable: ${{ steps.probe.outputs.detail }}"
+          fi
+          curl -sf -X POST "$DASHBOARD_URL/api/agent-runs" \
+            -H "Authorization: Bearer $DASHBOARD_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "{\"agent\":\"link-warden\",\"project_slug\":\"project-6\",\"trigger\":\"cron\",
+                 \"status\":\"$STATUS\",\"summary\":\"$SUMMARY\",
+                 \"artifact_url\":\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
+            || true
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}

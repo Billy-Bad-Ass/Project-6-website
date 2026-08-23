@@ -1,0 +1,131 @@
+name: Agent · Redirect guard
+
+# This is the highest-stakes check in the repository.
+#
+# The store used to be the apex. Somewhere there is a customer holding an email
+# with a signed link to bbanetwork.org/api/download?token=…, who has not clicked
+# it yet. If a refactor, a routing change or a detached custom domain breaks
+# that path, they paid for a file they cannot get — and the failure is silent.
+# Nobody opens a support ticket to say "my download worked".
+#
+# The unit tests cover the redirect logic. This covers the deployed reality:
+# DNS, the custom domain binding, and the Worker that is actually serving.
+on:
+  schedule:
+    - cron: '40 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-redirect-guard
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the paths a paying customer depends on
+        id: probe
+        run: |
+          BASE="${SITE_URL:-https://bbanetwork.org}"
+          STORE="https://guides.bbanetwork.org"
+          FAILURES=""
+
+          # path | expected status | expected redirect prefix
+          check() {
+            local path="$1" want_code="$2" want_prefix="$3"
+            local code loc
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE$path" || echo 000)
+            loc=$(curl -s -o /dev/null -w '%{redirect_url}' --max-time 20 "$BASE$path" || echo '')
+            printf '  %-42s %s → %s\n' "$path" "$code" "${loc:-<none>}"
+
+            if [ "$code" != "$want_code" ]; then
+              FAILURES="$FAILURES\n  $path expected $want_code, got $code"
+              return
+            fi
+            case "$loc" in
+              "$want_prefix"*) ;;
+              *) FAILURES="$FAILURES\n  $path redirected to '$loc', expected to start with '$want_prefix'" ;;
+            esac
+          }
+
+          echo "Checking legacy apex paths against $BASE"
+
+          # 308, not 301: a 301 lets a client turn a POST into a GET, which
+          # would silently neuter the checkout and webhook endpoints.
+          check "/api/download?token=guard" 308 "$STORE/api/download"
+          check "/api/checkout"             308 "$STORE/api/checkout"
+          check "/products/espresso-dial-in-card" 301 "$STORE/products/espresso-dial-in-card"
+          check "/success"                  301 "$STORE/success"
+          check "/licence"                  301 "$STORE/licence"
+
+          # The hub must keep its own endpoints rather than forwarding them to
+          # a store that has never heard of them.
+          for own in /api/health /api/stats; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE$own" || echo 000)
+            printf '  %-42s %s\n' "$own" "$code"
+            [ "$code" = "200" ] || FAILURES="$FAILURES\n  $own expected 200, got $code"
+          done
+
+          if [ -n "$FAILURES" ]; then
+            {
+              echo "failed=true"
+              echo "detail<<EOF"
+              printf '%b\n' "$FAILURES"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            printf '::error::Legacy redirects are broken:%b\n' "$FAILURES"
+          else
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+
+      - name: Investigate and report
+        if: steps.probe.outputs.failed == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            Use the `redirect-guard` subagent.
+
+            These checks failed against the live apex:
+            ${{ steps.probe.outputs.detail }}
+
+            Treat this as urgent: a broken /api/download means paying customers
+            cannot retrieve files they have already been charged for.
+
+            Open an issue labelled `ops` and `urgent` unless an OPEN one about the
+            same path already exists, in which case comment on it.
+          claude_args: |
+            --allowed-tools Read,Bash,Grep,Glob,WebFetch
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+
+      - name: Report the run
+        if: always()
+        run: |
+          STATUS="ok"
+          SUMMARY="Legacy customer paths all redirect correctly."
+          if [ "${{ steps.probe.outputs.failed }}" = "true" ]; then
+            STATUS="failed"
+            SUMMARY="Legacy redirect check FAILED — customer download links may be broken."
+          fi
+          curl -sf -X POST "$DASHBOARD_URL/api/agent-runs" \
+            -H "Authorization: Bearer $DASHBOARD_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "{\"agent\":\"redirect-guard\",\"project_slug\":\"project-6\",\"trigger\":\"cron\",
+                 \"status\":\"$STATUS\",\"summary\":\"$SUMMARY\",
+                 \"artifact_url\":\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
+            || true
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
