@@ -46,8 +46,6 @@ export interface Business {
   repo: string;
   /** Project 4's portfolio slug, so its runs and this hub agree on names. */
   portfolioSlug: string;
-  /** Font Awesome Free icon id — see brand/icons.ts for the inlined set. */
-  icon: string;
   /** Shown on the card. Kept vague on purpose: exact prices live on the sites. */
   priceHint?: string;
   /** Listed on the card so a visitor knows what they are getting before a click. */
@@ -80,7 +78,6 @@ export const BUSINESSES: Business[] = [
     revenueModel: 'stripe-checkout',
     repo: 'Billy-Bad-Ass/Project-2',
     portfolioSlug: 'project-2',
-    icon: 'print',
     priceHint: 'From a few pounds',
     highlights: [
       'Espresso dial-in troubleshooting card',
@@ -101,7 +98,6 @@ export const BUSINESSES: Business[] = [
     revenueModel: 'stripe-payment-link',
     repo: 'Billy-Bad-Ass/Project-1',
     portfolioSlug: 'project-1',
-    icon: 'stethoscope',
     priceHint: '$100 one-off',
     highlights: [
       'Every issue ranked by what it costs you',
@@ -122,7 +118,6 @@ export const BUSINESSES: Business[] = [
     revenueModel: 'internal',
     repo: 'Billy-Bad-Ass/Project-4',
     portfolioSlug: 'project-4',
-    icon: 'heart-pulse',
     highlights: [],
     unlisted: true,
   },

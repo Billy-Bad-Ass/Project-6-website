@@ -10,6 +10,7 @@
 import { BUSINESSES, PUBLIC_BUSINESSES, APEX, SUPPORT_EMAIL, CONTACT_EMAIL } from './businesses';
 import type { Business } from './businesses';
 import { icon } from './icons';
+import { signalField, rule, bullet, CARD_ART } from './motifs';
 import { STYLES } from './styles';
 
 /**
@@ -77,7 +78,7 @@ function card(business: Business): string {
 
   const highlights = business.highlights.length
     ? `<ul>${business.highlights
-        .map((h) => `<li>${icon('circle-check')}<span>${esc(h)}</span></li>`)
+        .map((h) => `<li>${bullet()}<span>${esc(h)}</span></li>`)
         .join('')}</ul>`
     : '';
 
@@ -85,23 +86,29 @@ function card(business: Business): string {
   // handler, so it works with JavaScript disabled and needs no consent banner —
   // nothing is stored about the visitor, only that the link was followed.
   const action = live
-    ? `<a class="cta" href="/go/${esc(business.id)}" data-host="${esc(business.host)}">
-         Visit ${esc(business.name)} ${icon('arrow-right')}
-       </a>`
+    ? `<a class="cta" href="/go/${esc(business.id)}">Visit ${esc(business.name)} ${icon('arrow-right')}</a>`
     : `<p class="pending-note">Opening at <code>${esc(business.host)}</code> shortly.</p>`;
 
+  // Custom artwork per business, drawn in the mark's own language. A business
+  // without one still renders — it just leads with the heading instead of a
+  // band, which is better than a broken or generic placeholder.
+  const art = CARD_ART[business.id];
+  const band = art ? `<div class="card-art-band">${art()}</div>` : '';
+
   return `<article class="card ${live ? 'is-live' : 'is-pending'}">
-  <div class="card-top">
-    <span class="card-icon">${icon(business.icon)}</span>
-    <span class="pill ${business.status}"><span class="dot"></span>${STATUS_LABEL[business.status]}</span>
-  </div>
-  <h3>${esc(business.name)}</h3>
-  <p class="tagline">${esc(business.tagline)}</p>
-  <p class="blurb">${esc(business.blurb)}</p>
-  ${highlights}
-  <div class="card-foot">
-    ${action}
-    ${business.priceHint ? `<span class="price">${esc(business.priceHint)}</span>` : ''}
+  ${band}
+  <div class="card-body">
+    <div class="card-top">
+      <h3>${esc(business.name)}</h3>
+      <span class="pill ${business.status}"><span class="dot"></span>${STATUS_LABEL[business.status]}</span>
+    </div>
+    <p class="tagline">${esc(business.tagline)}</p>
+    <p class="blurb">${esc(business.blurb)}</p>
+    ${highlights}
+    <div class="card-foot">
+      ${action}
+      ${business.priceHint ? `<span class="price">${esc(business.priceHint)}</span>` : ''}
+    </div>
   </div>
 </article>`;
 }
@@ -134,6 +141,11 @@ function layout({ title, description, path, body }: PageOptions): string {
 <meta name="theme-color" content="#FAFAF8" media="(prefers-color-scheme: light)">
 <link rel="icon" href="/assets/svg/bba-favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/png/bba-app-icon.png">
+<!-- Preloaded because the stylesheet is inline: without this the browser does
+     not discover the fonts until it has parsed the whole head, and the
+     headline flashes in a system face first. -->
+<link rel="preload" href="/fonts/space-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>${STYLES}</style>
 </head>
 <body>
@@ -193,6 +205,7 @@ export function renderHome(): string {
 
   const body = `
 <section class="hero">
+  ${signalField()}
   <div class="wrap">
     ${mark('hero-mark', true)}
     <h1>One network. Separate businesses.</h1>
@@ -204,10 +217,12 @@ export function renderHome(): string {
     <div class="hero-meta">
       <span>${icon('bolt')} Runs on Cloudflare&rsquo;s edge</span>
       <span>${icon('lock')} Payments handled by Stripe</span>
-      <span>${icon('envelope')} <a href="mailto:${CONTACT_EMAIL}" style="color:inherit">${CONTACT_EMAIL}</a></span>
+      <span>${icon('envelope')} <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></span>
     </div>
   </div>
 </section>
+
+${rule()}
 
 <section class="section" id="businesses">
   <div class="wrap">
@@ -240,10 +255,10 @@ export function renderHome(): string {
 
 export function renderAbout(): string {
   const body = `
-<section class="section" style="border-top:none">
+<section class="section">
   <div class="wrap prose">
     <p class="eyebrow">About</p>
-    <h1 style="font-size:clamp(2rem,1.4rem+2.4vw,3rem)">A holding page, honestly labelled.</h1>
+    <h1>A holding page, honestly labelled.</h1>
     <p>
       BBA Network is a small portfolio of independent products. There is no agency, no team
       page, and no roadmap deck. There is one person building things that are meant to be
@@ -288,15 +303,17 @@ export function renderAbout(): string {
 
 export function renderNotFound(): string {
   const body = `
-<section class="section" style="border-top:none">
+<section class="section">
   <div class="wrap prose">
     <p class="eyebrow">404</p>
-    <h1 style="font-size:clamp(2rem,1.4rem+2.4vw,3rem)">That page is not here.</h1>
+    <h1>That page is not here.</h1>
     <p>
       If you followed a link to a product or a download, it has moved to its own site. The
       businesses are listed below.
     </p>
-    <div class="cards" style="margin-top:2rem">
+  </div>
+  <div class="wrap" style="margin-top:2.5rem">
+    <div class="cards">
       ${PUBLIC_BUSINESSES.map(card).join('\n')}
     </div>
   </div>

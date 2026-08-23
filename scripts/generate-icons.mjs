@@ -1,10 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const BASE = 'node_modules/@fortawesome/fontawesome-free/svgs';
+// Only the genuinely generic affordances. Anything that represents a BBA
+// product is drawn in src/motifs.ts instead — an icon font can only give you
+// someone else's silhouettes, and "a printed reference card" is not in it.
 const WANTED = [
-  ['print', 'solid'], ['stethoscope', 'solid'], ['heart-pulse', 'solid'],
-  ['arrow-right', 'solid'], ['envelope', 'solid'], ['circle-check', 'solid'],
-  ['bolt', 'solid'], ['lock', 'solid'], ['github', 'brands'],
+  ['arrow-right', 'solid'], ['envelope', 'solid'],
+  ['bolt', 'solid'], ['lock', 'solid'],
 ];
 
 const entries = WANTED.map(([name, style]) => {
@@ -23,12 +25,12 @@ writeFileSync(
   `/**
  * The icon set, inlined.
  *
- * Font Awesome Free 6, extracted from the package at build-authoring time by
- * scripts/generate-icons.mjs rather than copied by hand — hand-copied path data
- * is unreviewable and silently wrong when it is wrong.
+ * Font Awesome Free 6, extracted from the package by scripts/generate-icons.mjs
+ * rather than copied by hand — hand-copied path data is unreviewable and
+ * silently wrong when it is wrong.
  *
  * Inlined rather than linked: the whole Font Awesome CSS is a megabyte and a
- * render-blocking request to another origin, to draw nine icons. These nine
+ * render-blocking request to another origin, to draw four icons. These four
  * ship in the HTML and cost nothing extra.
  *
  * Icons are CC BY 4.0. Attribution is in NOTICE.md and in the page footer —

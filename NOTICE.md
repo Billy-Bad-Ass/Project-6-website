@@ -13,7 +13,16 @@ The icons are extracted from the `@fortawesome/fontawesome-free` package by
 regenerates and diffs that file, so it cannot drift from the licensed source
 without failing the build.
 
-Nine icons are inlined. The Font Awesome CSS and webfonts are not shipped.
+Four icons are inlined — the generic affordances only (an arrow, an envelope, a
+lock, a bolt). Everything that represents a BBA product is original artwork in
+`src/motifs.ts`. The Font Awesome CSS and webfonts are not shipped.
+
+## Typefaces
+
+**Space Grotesk** and **Inter**, both under the SIL Open Font License 1.1, are
+self-hosted from `public/fonts/` as variable Latin subsets. The OFL permits
+redistribution as part of a larger work; the fonts are not sold or distributed
+on their own.
 
 ## Brand assets
 

@@ -18,6 +18,7 @@
 import { legacyRedirect } from './redirects';
 import { renderHome, renderAbout, renderNotFound, renderSitemap } from './render';
 import { BUSINESSES, PUBLIC_BUSINESSES, businessById, destination, APEX } from './businesses';
+import { BRAND_CSS } from './styles';
 
 export interface Env {
   /**
@@ -208,11 +209,41 @@ export default {
       /** Cheap liveness probe for Project 4's heartbeat-watchdog. */
       case '/api/health':
         return json({ ok: true, service: 'bba-network-hub', businesses: PUBLIC_BUSINESSES.length });
+
+      /**
+       * The design system, for the other subdomains.
+       *
+       * `guides.` and `audit.` are built in different repositories by different
+       * sessions. The only way three sites stay looking like one network is a
+       * single stylesheet they all link — a copy diverges the first time
+       * somebody nudges a colour, and then the network looks like three
+       * unrelated products that happen to share a logo.
+       *
+       * Versioned in the path rather than by a query string so a future
+       * breaking change can ship as `/brand/v2.css` while v1 keeps serving the
+       * sites that have not migrated. Cached for a day at the edge; a colour
+       * fix reaches every subdomain without any of them redeploying.
+       */
+      case '/brand/v1.css':
+        return new Response(BRAND_CSS, {
+          headers: {
+            'content-type': 'text/css; charset=utf-8',
+            'cache-control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800',
+            // Read cross-origin by design — that is the entire point of it.
+            'access-control-allow-origin': '*',
+            'x-content-type-options': 'nosniff',
+          },
+        });
     }
 
-    // 3. Static assets (the brand kit). Anything unmatched falls through to a
-    //    branded 404 rather than the platform's bare one.
-    if (path.startsWith('/assets/')) {
+    // 3. Static assets — the brand kit and the fonts.
+    //
+    //    In normal operation this block does not run: Cloudflare serves a
+    //    matching asset before the Worker is invoked at all, which is also why
+    //    their cache and CORS headers live in public/_headers rather than here.
+    //    This is the miss path, and it exists so an unmatched /assets/ URL gets
+    //    the branded 404 below instead of the platform's bare one.
+    if (path.startsWith('/assets/') || path.startsWith('/fonts/')) {
       const asset = await env.ASSETS.fetch(request);
       if (asset.status !== 404) return asset;
     }
