@@ -216,6 +216,13 @@ const GLYPHS: Record<string, string> = {
   lock: '<rect x="3.2" y="7" width="9.6" height="6.8" rx="1.6"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/>',
   // The mark's own terminator, used where something needs a full stop.
   node: '<rect x="5" y="5" width="6" height="6" rx="1.2" fill="currentColor" stroke="none"/>',
+  // Drawn to the same grid and stroke weight as the rest, rather than dropping
+  // in the official asset: this is a link to a profile, and the generic
+  // camera-outline reads as one without shipping anyone's brand file.
+  instagram:
+    '<rect x="2.6" y="2.6" width="10.8" height="10.8" rx="3.2"/>' +
+    '<circle cx="8" cy="8" r="2.7"/>' +
+    '<circle cx="11.3" cy="4.7" r=".85" fill="currentColor" stroke="none"/>',
 };
 
 /**

@@ -210,3 +210,35 @@ describe('rendered markup is well-formed', () => {
   });
 });
 
+describe('the Instagram link', () => {
+  const html = renderHome();
+
+  it('appears once, in the colophon', () => {
+    expect(html.split('instagram.com/bba.network').length - 1).toBe(1);
+    expect(html).toContain('@bba.network');
+  });
+
+  it('carries no share-session or campaign parameters', () => {
+    // It was given as a QR share link: `igsi=` is a per-share session
+    // identifier, and `utm_source=qr` would tag every visitor arriving from
+    // this site as a QR scan in Instagram's analytics. Publishing either is a
+    // small, permanent lie about where the traffic came from.
+    expect(html).not.toContain('igsi');
+    expect(html).not.toContain('utm_source');
+    expect(html).toContain('href="https://www.instagram.com/bba.network"');
+  });
+
+  it('does not open a hole for tab-nabbing', () => {
+    const anchor = html.slice(html.indexOf('class="social"'));
+    expect(anchor.slice(0, 200)).toContain('noopener');
+  });
+
+  it('has left the contact address out of the colophon', () => {
+    const colophon = html.slice(html.indexOf('class="colophon"'), html.indexOf('</footer>'));
+    expect(colophon).not.toContain('hello@bbanetwork.org');
+    // Still reachable from the footer's Support column and the nav, though —
+    // removing it from one slot should not remove it from the site.
+    expect(html).toContain('hello@bbanetwork.org');
+  });
+});
+

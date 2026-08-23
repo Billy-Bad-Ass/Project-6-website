@@ -87,9 +87,16 @@ describe('the subdomain templates', () => {
 
       it('uses the real support address', async () => {
         const html = await readFile(new URL(file, DIR), 'utf8');
-        // bba.network (no hyphen-free second word) is a different domain that
-        // nobody owns. It has already shipped in this portfolio once.
-        expect(html).not.toContain('bba.network');
+
+        // The failure mode is an email at `bba.network` — a different domain
+        // from bbanetwork.org that nobody owns, and one that has already
+        // shipped in this portfolio once.
+        //
+        // Matched as a mailto rather than as a bare string: `bba.network` is
+        // also the Instagram handle, so a blunt substring ban blocks a
+        // perfectly good link. Guard the address, not the characters.
+        const deadAddress = /mailto:[^"']*@bba\.network(?![a-z])/i;
+        expect(html).not.toMatch(deadAddress);
         expect(html).toContain('support@bbanetwork.org');
       });
     });

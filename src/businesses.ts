@@ -59,6 +59,18 @@ export const SUPPORT_EMAIL = `support@${APEX}`;
 export const CONTACT_EMAIL = `hello@${APEX}`;
 
 /**
+ * The network's Instagram.
+ *
+ * Stored without the query string it was shared with. That link carried
+ * `igsi=` — a share-session identifier Instagram mints per share — and
+ * `utm_source=qr`, which would have tagged every visitor arriving from this
+ * site as a QR scan in Instagram's own analytics. Neither belongs in a link
+ * published on a website.
+ */
+export const INSTAGRAM_URL = 'https://www.instagram.com/bba.network';
+export const INSTAGRAM_HANDLE = '@bba.network';
+
+/**
  * Note on hosts: nothing here is pointed automatically. Adding a custom domain
  * to a Worker is done in the Cloudflare dashboard, on purpose — a `routes`
  * entry in wrangler.jsonc makes the deploy responsible for creating DNS
