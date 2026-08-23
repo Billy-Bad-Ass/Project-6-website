@@ -135,10 +135,17 @@ two.
 
 ## After pointing anything
 
-- Set the `SITE_URL` repository **variable** to `https://bbanetwork.org`. The
-  deploy smoke test and both agent probes fall back to that host by default, but
-  setting it explicitly means a preview deploy checks itself rather than
-  production.
+- Set the `SITE_URL` repository **variable** to `https://bbanetwork.org` — but
+  **only once the apex actually serves this hub.** Until then leave it unset:
+  the deploy smoke test falls back to the Worker's own `workers.dev` hostname,
+  which is the thing that was just deployed. Pointing it at the apex too early
+  makes every successful deploy report failure, because the apex is still
+  serving the store.
+
+  The deploy also reports where the apex currently points, as a notice rather
+  than a failure. It will keep saying "still points elsewhere" until step 4
+  above is done, and that is correct — this workflow has no business forcing
+  the schedule of a move whose first step is repointing a payment webhook.
 - Run the redirect guard by hand once — Actions → **Agent · Redirect guard** →
   Run workflow — and confirm it passes against the live apex before you walk
   away.
