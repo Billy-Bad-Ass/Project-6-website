@@ -26,6 +26,14 @@ on their own.
 
 ## Brand assets
 
+The animated mark in `public/assets/animated/` is the supplied kit, kept as the
+reference for the timings the site reproduces. The site does not load those
+files: it inlines the mark and defines the keyframes in `src/styles.ts`,
+because the `.svg` files reference `@keyframes` they do not contain — only the
+`.html` wrappers define them, so `<img src="…animated.svg">` renders a static
+logo. Change the timings in one place and the other stops matching.
+
+
 The BBA Network mark, wordmark and derived assets in `public/assets/` are not
 open source. They are the property of BBA Network and are included here because
 this repository builds BBA Network's own site.

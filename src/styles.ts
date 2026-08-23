@@ -78,6 +78,12 @@ export function styles(fontBase = ''): string {
   --status-live: #4ADE80;
   --status-building: #E4B155;
 
+  /* The mark's bars. The animated kit ships two files that differ only in this
+     colour — #C7CCD6 for dark grounds, #12161F for light — so it is a token
+     here and the mark is inlined once rather than shipped twice. */
+  --mark-bar: var(--bba-grey);
+  --mark-beam: #6C93FF;
+
   --card-sheen: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,0) 42%);
   --shadow: 0 1px 2px rgba(0,0,0,.5), 0 16px 40px -20px rgba(0,0,0,.85);
   --shadow-lift: 0 1px 2px rgba(0,0,0,.5), 0 26px 60px -26px rgba(0,0,0,.95);
@@ -113,6 +119,9 @@ export function styles(fontBase = ''): string {
        reading as the same green and amber. */
     --status-live: #0E7A3C;
     --status-building: #855700;
+
+    --mark-bar: var(--bba-slate);
+    --mark-beam: #1E45B8;
 
     --card-sheen: linear-gradient(180deg, rgba(11,15,22,.028), rgba(11,15,22,0) 42%);
     --shadow: 0 1px 2px rgba(11,15,22,.05), 0 14px 36px -22px rgba(11,15,22,.42);
@@ -249,11 +258,57 @@ h1, h2, h3, .display {
 @keyframes sweep { from { transform: scaleX(0); opacity: 0; } }
 
 .hero-mark { width: clamp(168px, 30vw, 250px); height: auto; margin-bottom: 2.4rem; }
-.hero-mark .bar { transform-origin: center; animation: bar-in .65s cubic-bezier(.2,.8,.3,1) backwards; }
-@keyframes bar-in { from { transform: scaleX(0); opacity: 0; } }
 
+/* ------------------------------------------------------------- the mark -- */
+/*
+ * The animated logo, from the brand kit's own timings.
+ *
+ * Three loops, all from bba-logo-animated-*.svg: the bars breathe, a brighter
+ * dash travels the centre rail, and the square terminator blinks near the end
+ * of each cycle. The kit's per-bar delays are identical fractions of the cycle
+ * in both its variants (0, .09, .18, .27, .45, .54, .63, .72), so they are
+ * expressed as fractions here and --cycle alone switches between the ambient
+ * 10s and active 3.6s timings.
+ *
+ * Inlined rather than <img src="…animated.svg">, which the kit's README
+ * suggests: those files reference the keyframes but do not define them — only
+ * the HTML wrappers do — so an <img> embed renders a completely static logo.
+ * Inlining also lets the bars take a theme token instead of shipping a
+ * light and a dark copy.
+ */
+.mark { --cycle: 10s; }
+.mark-bars { color: var(--mark-bar); }
+
+/* The travelling dash is a highlight, not part of the drawn mark: without the
+   animation there is nothing for it to be, so it stays invisible. */
+.mark-beam { opacity: 0; }
+
+.mark-animated .bar {
+  animation: mark-pulse var(--cycle) ease-in-out infinite;
+  animation-delay: calc(var(--cycle) * var(--d, 0));
+}
+.mark-animated .mark-beam {
+  opacity: .5;
+  animation: mark-beam var(--cycle) linear infinite;
+}
+.mark-animated .mark-node { animation: mark-node var(--cycle) linear infinite; }
+
+@keyframes mark-pulse { 0%, 100% { opacity: .55 } 50% { opacity: 1 } }
+@keyframes mark-beam  { to { stroke-dashoffset: -100 } }
+@keyframes mark-node  { 0%, 78%, 100% { opacity: .35 } 86% { opacity: 1 } }
+
+/* An infinitely looping logo is precisely what this setting is for. Everything
+   settles to the mark's resting state rather than freezing mid-cycle. */
 @media (prefers-reduced-motion: reduce) {
-  .hero-mark .bar, .sf-signal { animation: none; }
+  .mark-animated .bar,
+  .mark-animated .mark-beam,
+  .mark-animated .mark-node,
+  .sf-signal {
+    animation: none;
+  }
+  .mark-animated .bar { opacity: 1; }
+  .mark-animated .mark-beam { opacity: 0; }
+  .mark-animated .mark-node { opacity: 1; }
 }
 
 h1 {
