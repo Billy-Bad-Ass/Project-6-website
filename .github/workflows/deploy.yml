@@ -88,13 +88,16 @@ jobs:
 
           # Identity check. Without it this step happily passes against whatever
           # else happens to be answering on that hostname.
-          case "$BODY" in
-            *'"service":"bba-network-hub"'*) ;;
-            *)
-              echo "::error title=That host is not this hub::$BASE answered, but with something else. If SITE_URL is the apex, the apex is still attached to another Worker — see docs/DOMAINS.md, 'Attaching a domain to a Worker'. The deploy itself succeeded."
-              exit 1
-              ;;
-          esac
+          #
+          # Matched with grep and an explicit whitespace class, not a glob: the
+          # hub pretty-prints its JSON, so the body reads `"service": "..."`
+          # with a space after the colon. A glob written without one matches
+          # nothing, which is exactly how this failed the first time — against
+          # a Worker that was up and answering correctly.
+          if ! echo "$BODY" | grep -q '"service"[[:space:]]*:[[:space:]]*"bba-network-hub"'; then
+            echo "::error title=That host is not this hub::$BASE answered, but with something else. If SITE_URL is the apex, the apex is still attached to another Worker — see docs/DOMAINS.md, 'Attaching a domain to a Worker'. The deploy itself succeeded."
+            exit 1
+          fi
 
           # The redirect rules key off the path, not the host, so they are
           # testable here long before the apex moves.
@@ -128,14 +131,13 @@ jobs:
         if: always()
         run: |
           BODY=$(curl -sf --max-time 20 https://bbanetwork.org/api/health || echo '')
-          case "$BODY" in
-            *'"service":"bba-network-hub"'*)
-              echo "::notice title=Apex is live on the hub::bbanetwork.org is serving bba-network-hub." ;;
-            '')
-              echo "::warning title=Apex did not answer::bbanetwork.org/api/health returned nothing." ;;
-            *)
-              echo "::notice title=Apex still points elsewhere::bbanetwork.org is not yet serving this hub — it is still attached to another Worker (the store). This is expected until you attach the custom domain; docs/DOMAINS.md has the order to do it in, and step 1 is repointing the Stripe webhook." ;;
-          esac
+          if [ -z "$BODY" ]; then
+            echo "::warning title=Apex did not answer::bbanetwork.org/api/health returned nothing."
+          elif echo "$BODY" | grep -q '"service"[[:space:]]*:[[:space:]]*"bba-network-hub"'; then
+            echo "::notice title=Apex is live on the hub::bbanetwork.org is serving bba-network-hub."
+          else
+            echo "::notice title=Apex still points elsewhere::bbanetwork.org is not yet serving this hub — it is still attached to another Worker (the store). This is expected until you attach the custom domain; docs/DOMAINS.md has the order to do it in, and step 1 is repointing the Stripe webhook."
+          fi
 
       # Report into Project 4's console. `|| true` because losing a log entry
       # must never fail a deploy that already succeeded.

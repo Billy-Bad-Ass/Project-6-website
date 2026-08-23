@@ -42,16 +42,15 @@ jobs:
           # moved by hand, and a guard that reports the store's answers as this
           # repo's failures would open an urgent issue every morning about
           # nothing. An agent that cries wolf daily is worse than no agent.
+          # grep with a whitespace class, not a glob: /api/health is
+          # pretty-printed, so the body reads `"service": "..."` with a space.
           HEALTH=$(curl -sf --max-time 20 "$BASE/api/health" || echo '')
-          case "$HEALTH" in
-            *'"service":"bba-network-hub"'*) ;;
-            *)
-              echo "skipped=true" >> "$GITHUB_OUTPUT"
-              echo "failed=false" >> "$GITHUB_OUTPUT"
-              echo "::notice title=Nothing to guard yet::$BASE is not serving this hub, so its redirects are not in play. Expected until the apex is attached — see docs/DOMAINS.md."
-              exit 0
-              ;;
-          esac
+          if ! echo "$HEALTH" | grep -q '"service"[[:space:]]*:[[:space:]]*"bba-network-hub"'; then
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Nothing to guard yet::$BASE is not serving this hub, so its redirects are not in play. Expected until the apex is attached — see docs/DOMAINS.md."
+            exit 0
+          fi
 
           # path | expected status | expected redirect prefix
           check() {
