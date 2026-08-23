@@ -448,6 +448,14 @@ footer a:hover { color: var(--text); text-decoration: underline; text-underline-
 }
 .colophon a { font-size: inherit; }
 
+.social {
+  display: inline-flex; align-items: center; gap: .5rem;
+  color: var(--text-dim); text-decoration: none;
+  transition: color .15s ease;
+}
+.social:hover { color: var(--text); }
+.social .icon { font-size: 1.05rem; }
+
 /* ------------------------------------------------------------------ prose -- */
 
 .prose { max-width: var(--measure); }

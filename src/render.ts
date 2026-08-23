@@ -7,7 +7,15 @@
  * pass to produce markup that was already static.
  */
 
-import { BUSINESSES, PUBLIC_BUSINESSES, APEX, SUPPORT_EMAIL, CONTACT_EMAIL } from './businesses';
+import {
+  BUSINESSES,
+  PUBLIC_BUSINESSES,
+  APEX,
+  SUPPORT_EMAIL,
+  CONTACT_EMAIL,
+  INSTAGRAM_URL,
+  INSTAGRAM_HANDLE,
+} from './businesses';
 import type { Business } from './businesses';
 import { signalField, rule, bullet, icon, CARD_ART } from './motifs';
 import { STYLES } from './styles';
@@ -208,7 +216,9 @@ ${body}
     </div>
     <div class="colophon">
       <span>&copy; ${new Date().getUTCFullYear()} BBA Network</span>
-      <span><a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></span>
+      <a class="social" href="${INSTAGRAM_URL}" rel="me noopener">
+        ${icon('instagram')}<span>${INSTAGRAM_HANDLE}</span>
+      </a>
     </div>
   </div>
 </footer>
