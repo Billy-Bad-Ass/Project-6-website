@@ -1,21 +1,15 @@
 # Notices
 
-## Font Awesome Free
+## Artwork
 
-This project uses icons from [Font Awesome Free](https://fontawesome.com) 6.
+Every mark on this site is original work: the logo animation, the hero signal
+field, the product illustrations and the interface icons are all drawn in
+`src/motifs.ts` from the brand mark's own vocabulary.
 
-Icons are licensed under [CC BY 4.0](https://fontawesome.com/license/free).
-Attribution is carried in the footer of every page rendered by `src/render.ts`
-and must stay there — it is a licence condition, not a style choice.
-
-The icons are extracted from the `@fortawesome/fontawesome-free` package by
-`scripts/generate-icons.mjs` into `src/icons.ts`, which is checked in. CI
-regenerates and diffs that file, so it cannot drift from the licensed source
-without failing the build.
-
-Four icons are inlined — the generic affordances only (an arrow, an envelope, a
-lock, a bolt). Everything that represents a BBA product is original artwork in
-`src/motifs.ts`. The Font Awesome CSS and webfonts are not shipped.
+This project previously used Font Awesome Free icons under CC BY 4.0, which
+obliges a visible credit wherever they appear. They were replaced with drawn
+equivalents rather than the credit being removed — if a borrowed glyph is ever
+reintroduced, its attribution has to come back with it.
 
 ## Typefaces
 

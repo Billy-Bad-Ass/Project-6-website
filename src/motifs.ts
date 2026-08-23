@@ -9,8 +9,9 @@
  *
  * Icon fonts can only ever give you someone else's silhouettes. These are
  * specific to what this network sells: a printed reference card, and a website
- * being examined. Font Awesome still covers the genuinely generic affordances
- * (an arrow, an envelope) where inventing a bespoke glyph would just be worse.
+ * being examined. The handful of generic affordances — an arrow, an envelope, a
+ * lock — are drawn here too rather than pulled from Font Awesome, which keeps
+ * every mark on the site original work and leaves nothing to attribute.
  *
  * Everything uses `currentColor` for structure so the artwork inverts correctly
  * between themes, and the brand blue only where the accent is meant to read as
@@ -192,4 +193,45 @@ export function bullet(): string {
   <rect x="1" y="5" width="7" height="2" rx="1" fill="currentColor" opacity=".45"/>
   <rect x="8.5" y="3.5" width="5" height="5" rx="1.2" fill="${BLUE}"/>
 </svg>`;
+}
+
+/* ------------------------------------------------------------------ icons -- */
+
+/**
+ * The generic affordances, drawn rather than borrowed.
+ *
+ * Four simple shapes. Pulling in an icon font for these meant shipping someone
+ * else's artwork under CC BY 4.0, which obliges a visible credit on every page
+ * — a real constraint to accept in exchange for an arrow and an envelope. Drawn
+ * here they are original work, they inherit the same stroke weight and rounding
+ * as the mark, and the footer owes nobody anything.
+ *
+ * Stroked rather than filled, at a 16-unit grid, so they sit beside text at the
+ * same optical weight as the bars in the logo.
+ */
+const GLYPHS: Record<string, string> = {
+  'arrow-right': '<path d="M2.5 8h9M8.2 4.6 11.6 8l-3.4 3.4"/>',
+  envelope:
+    '<rect x="2" y="3.6" width="12" height="8.8" rx="1.6"/><path d="m2.7 4.6 5.3 4.1 5.3-4.1"/>',
+  lock: '<rect x="3.2" y="7" width="9.6" height="6.8" rx="1.6"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/>',
+  // The mark's own terminator, used where something needs a full stop.
+  node: '<rect x="5" y="5" width="6" height="6" rx="1.2" fill="currentColor" stroke="none"/>',
+};
+
+/**
+ * Renders an icon as inline SVG.
+ *
+ * `aria-hidden` because every icon on this site sits next to its own visible
+ * label. An icon that repeats the text beside it is noise to a screen reader,
+ * not an affordance.
+ */
+export function icon(name: string, className = 'icon'): string {
+  const glyph = GLYPHS[name];
+  if (!glyph) throw new Error(`Unknown icon: ${name}. Add it to GLYPHS in src/motifs.ts.`);
+
+  return (
+    `<svg class="${className}" viewBox="0 0 16 16" fill="none" stroke="currentColor" ` +
+    `stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" ` +
+    `aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">${glyph}</svg>`
+  );
 }

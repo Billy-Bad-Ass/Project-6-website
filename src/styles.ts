@@ -454,6 +454,16 @@ footer a:hover { color: var(--text); text-decoration: underline; text-underline-
 .prose h1 { font-size: clamp(2.1rem, 1.4rem + 2.6vw, 3.2rem); margin-bottom: 1.2rem; }
 .prose h2 { margin-top: 2.8rem; font-size: clamp(1.35rem, 1.1rem + .9vw, 1.7rem); }
 .prose p { color: var(--text-muted); text-wrap: pretty; }
+
+/* The opening line carries the whole page, so it is set larger than the body
+   copy that follows it. */
+.prose .lead { font-size: 1.14rem; color: var(--text); }
+
+.checklist { list-style: none; margin: 1.2rem 0 1.6rem; padding: 0; display: grid; gap: .7rem; }
+.checklist li { display: flex; gap: .7rem; align-items: flex-start; color: var(--text-muted); }
+
+.contact-line { font-size: 1.1rem; }
+.contact-line a { font-weight: 600; }
 .prose a { color: var(--accent-text); text-underline-offset: 3px; }
 
 /* =========================================================== subdomains == */
