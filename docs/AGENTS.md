@@ -39,7 +39,7 @@ here rather than quietly made.
 | --- | --- | --- | --- |
 | `link-warden` | Every business the register calls `live` is actually reachable. | Daily 07:20 UTC | Worker cron |
 | `redirect-guard` | The legacy apex paths that carry paying customers to their downloads. | Daily 07:40 UTC | Worker cron |
-| `deploy` | Reports each production deploy and its smoke test. | On push to `main` | Actions, for now |
+| deploy | Builds, tests and deploys. | On push to `main` | Workers Builds |
 | mention | Routes an `@claude` mention on an issue or PR here. | On mention | Actions |
 
 The two scheduled checks live in `src/checks.ts`; the mapping from cron
@@ -133,21 +133,41 @@ Variables and Secrets, or `npx wrangler secret put NAME`:
 Every one is optional in the sense that the checks run without them. What
 changes is whether anybody is told.
 
-Repository **secrets**, for what is left on GitHub Actions:
+Repository **secrets** are no longer needed for deploying. Workers Builds holds
+the credentials on Cloudflare's side, so `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` can be deleted from this repository — nothing reads
+them any more.
 
-| Secret | Used by |
+What is left on GitHub Actions is `ci.yml`, which runs the test suite on every
+pull request, and the `@claude` mention router. Neither needs a Cloudflare
+credential.
+
+## How a deploy happens now
+
+A push to `main` triggers a Workers Build, which runs two commands in order:
+
+| Step | Command |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | deploy — until Workers Builds replaces it |
-| `CLOUDFLARE_ACCOUNT_ID` | deploy — until Workers Builds replaces it |
-| `DASHBOARD_URL` | the deploy's own reporting step |
-| `DASHBOARD_TOKEN` | the deploy's own reporting step |
-| `CF_ACCESS_CLIENT_ID` | the deploy's own reporting step |
-| `CF_ACCESS_CLIENT_SECRET` | the deploy's own reporting step |
+| Build | `npm run check` |
+| Deploy | `npx wrangler deploy` |
 
-The duplication is temporary and deliberate: the GitHub deploy stays until
-Workers Builds is set up and has deployed successfully at least once. Removing
-a working deploy path in the same change that adds an untested one is how you
-end up unable to ship the fix.
+**The build command is the gate.** A failing test suite fails the build, and a
+failed build never reaches the deploy command — which preserves the rule at the
+top of `CLAUDE.md`: the redirect suite is the only thing standing between a
+refactor and a customer who cannot download what they paid for.
+
+### What was lost, and it is worth naming
+
+The old workflow ran a **smoke test against the live site after every deploy** —
+the download redirect, the 301s, `/licence`, `/brand/v1.css`. Workers Builds has
+no equivalent hook, so that check is gone from the deploy path.
+
+The redirect guard still covers all of it, but daily rather than per-deploy. So
+the window in which a bad deploy could sit unnoticed went from about two
+minutes to up to twenty-four hours. On a site that has never taken a payment
+that is an acceptable trade; it stops being one on the day the first sale
+happens, and the cheap fix then is a second, more frequent cron rather than a
+return to Actions.
 
 Prefer `CLAUDE_CODE_OAUTH_TOKEN`: on a Max plan those runs cost nothing, where
 an API key bills per token. The action gives the API key precedence when both

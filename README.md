@@ -40,26 +40,32 @@ npm run dev        # → http://localhost:8787
 npm run check      # typecheck + tests
 ```
 
-Deploying is a push to `main`. The workflow gates on the test suite, deploys,
-then smoke-tests the live apex — including that download redirect — and fails
-the run if it is wrong.
+Deploying is a push to `main`. **Cloudflare Workers Builds** watches the
+repository and runs two commands in order — `npm run check`, then
+`npx wrangler deploy`. A failing test suite fails the build, and a failed build
+never reaches the deploy, which is what keeps the redirect suite standing
+between a refactor and a customer who cannot download what they paid for.
 
-### Before the first deploy can work
+There is no deploy workflow in `.github/`, and no Cloudflare credential in this
+repository's secrets. Both live on Cloudflare's side of the Git integration.
+What is left in Actions is the test suite on pull requests and the `@claude`
+mention router.
 
-Two repository secrets, under **Settings → Secrets and variables → Actions**:
+### Configuration that lives on the Worker
 
-| Secret | Where it comes from |
+The two scheduled checks run as Cloudflare Cron Triggers and report into
+Project 4's console, which needs four **Worker** secrets — set under Settings →
+Variables and Secrets, or with `npx wrangler secret put NAME`:
+
+| Secret | For |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → Create Token → **Edit Cloudflare Workers** template |
-| `CLOUDFLARE_ACCOUNT_ID` | The account id shown on any domain's overview page in the Cloudflare dashboard |
+| `DASHBOARD_URL` | Where to post a run |
+| `DASHBOARD_TOKEN` | Project 4's own bearer check |
+| `CF_ACCESS_CLIENT_ID` | Getting past Cloudflare Access, which fronts the dashboard |
+| `CF_ACCESS_CLIENT_SECRET` | The other half of that |
 
-Without them the deploy fails at the authentication step — the workflow checks
-first and says exactly which one is missing rather than letting Wrangler fail
-with a message about non-interactive environments.
-
-Two more are optional, and only affect whether runs show up in Project 4's
-console: `DASHBOARD_URL` and `DASHBOARD_TOKEN`. Every reporting step ends in
-`|| true`, so their absence is a warning, never a failed deploy.
+All four are optional. Without them the checks still run and still say what
+they found; what changes is whether anybody is told. See `docs/AGENTS.md`.
 
 `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) is needed only by the agent
 workflows — see [`docs/AGENTS.md`](docs/AGENTS.md).
