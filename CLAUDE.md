@@ -20,9 +20,17 @@ then `docs/DOMAINS.md` if you are touching anything to do with hosts.
    enforceable only while it stays true. Adding a script means changing the
    security policy, deliberately, in `src/index.ts`.
 
-4. **No Worker cron here.** Project 4 owns portfolio orchestration. This repo
-   reports to its `/api/agent-runs` and schedules nothing beyond its own two
-   checks. See `docs/AGENTS.md`.
+4. **Project 4 owns portfolio orchestration.** This repo schedules its own two
+   checks — a redirect guard and a link warden, on Cloudflare Cron Triggers in
+   `wrangler.jsonc` — and nothing else. It keeps no run log, no dashboard and
+   no view of any other project; it posts what happened to Project 4's
+   `/api/agent-runs` and stops. See `docs/AGENTS.md`.
+
+   *This rule read "No Worker cron here" until 2026-08-24, when the deploy
+   moved to Cloudflare and the two checks came with it. The intent has not
+   changed — it was written to stop two systems competing over what runs
+   across the portfolio, not to stop this repo watching its own hostnames. If
+   Project 4 disagrees, it is the one to say so.*
 
 5. **Never touch Stripe from this repo.** The hub is a signpost. Money is taken
    on the businesses' own subdomains.

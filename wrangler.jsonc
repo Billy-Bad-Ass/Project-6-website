@@ -14,6 +14,16 @@
   // hold that permission — adding one here turns every deploy into a failure.
   // The apex is attached in the Cloudflare dashboard instead, once.
 
+  // The two scheduled checks, moved here from GitHub Actions on 2026-08-24
+  // when the deploy moved to Workers Builds. Same expressions, same times, in
+  // UTC as they always were. src/checks.ts says what each one covers; the
+  // mapping from expression to check is in src/index.ts, and an expression
+  // added here without a matching entry there logs that it ran nothing rather
+  // than silently doing nothing.
+  "triggers": {
+    "crons": ["20 7 * * *", "40 7 * * *"]
+  },
+
   "observability": { "enabled": true },
 
   "assets": {

@@ -19,8 +19,10 @@ import { legacyRedirect } from './redirects';
 import { renderHome, renderAbout, renderLicence, renderNotFound, renderSitemap } from './render';
 import { BUSINESSES, PUBLIC_BUSINESSES, businessById, destination, APEX } from './businesses';
 import { BRAND_CSS } from './styles';
+import { apexIdentity, linkWarden, redirectGuard, type CheckResult } from './checks';
+import { reportRun, type ReportEnv } from './report';
 
-export interface Env {
+export interface Env extends ReportEnv {
   /**
    * Static assets (the brand kit). Bound by wrangler's `assets` config.
    */
@@ -131,7 +133,67 @@ async function readClicks(env: Env): Promise<Record<string, number | null>> {
   return counts;
 }
 
+/**
+ * Which check each cron expression runs.
+ *
+ * Two schedules rather than one, at the times they ran as GitHub Actions.
+ * Staggered on purpose: they probe overlapping hosts, and a single failing
+ * host producing two separate findings twenty minutes apart is easier to read
+ * than one combined run that half-failed.
+ */
+const SCHEDULE: Record<string, 'link-warden' | 'redirect-guard'> = {
+  '20 7 * * *': 'link-warden',
+  '40 7 * * *': 'redirect-guard',
+};
+
+/** Both checks, behind one name, whatever fired them. */
+async function runCheck(which: 'link-warden' | 'redirect-guard'): Promise<CheckResult> {
+  return which === 'link-warden' ? linkWarden(fetch) : redirectGuard(fetch, `https://${APEX}`);
+}
+
 export default {
+  /**
+   * The scheduled checks. See src/checks.ts for what they cover and why.
+   *
+   * Nothing here throws. A check that cannot complete is a finding, not an
+   * exception — and an exception in a cron handler is a run that vanishes
+   * without saying anything, which is the failure mode this whole layer keeps
+   * being rewritten to avoid.
+   */
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const which = SCHEDULE[event.cron];
+    if (!which) {
+      console.log(`No check is mapped to cron "${event.cron}" — nothing ran.`);
+      return;
+    }
+
+    ctx.waitUntil(
+      (async () => {
+        const result = await runCheck(which);
+
+        for (const line of result.log) console.log(`  ${line}`);
+
+        // Carried on every run, pass or fail: what is answering on the apex is
+        // worth having in the log even on a good day, and it is the one thing
+        // this Worker cannot assert about itself. See apexIdentity.
+        const apex = await apexIdentity(fetch);
+
+        const summary = result.ok
+          ? `All checks passed — ${apex}.`
+          : `${result.problems.join('; ')} — ${apex}.`;
+
+        console.log(`${which}: ${result.ok ? 'ok' : 'FAILED'} — ${summary}`);
+
+        const reported = await reportRun(env, {
+          agent: which,
+          status: result.ok ? 'ok' : 'failed',
+          summary,
+        });
+        console.log(`${which}: ${reported}`);
+      })(),
+    );
+  },
+
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
