@@ -64,7 +64,7 @@ these are no longer preparations, they are open gaps on a live domain.
 | --- | --- |
 | 1. Repoint the Stripe webhook | Done, 2026-08-24. Sandbox account, test mode. |
 | 2. Email Routing for `support@` | Enabled on the zone. Routes still to be confirmed — see below. |
-| 3. `guides.` points at the store | **No. There is no DNS record for it.** |
+| 3. `guides.` points at the store | Done. Probed reachable 2026-08-24 12:04. |
 | 4. Apex attached to this hub | **Done.** |
 | 5. `www.` attached to this hub | **No. There is no DNS record for it.** |
 
@@ -80,32 +80,43 @@ interesting part:
 | `go.bbanetwork.org` | Worker | `bba-growth-os` |
 | `ops.bbanetwork.org` | Worker | `bba-growth-os` |
 
-No `www`, no `guides`, no `audit`, no `heartbeat`. `audit.` is the only one of
-those that is fine: it is `building` in the register, and the hub renders a
-`building` business as a disabled card rather than a link, which is exactly
-what that status is for.
+That table shows no `www`, `guides`, `audit` or `heartbeat` row — but do not
+read absence there as absence in reality. `guides.bbanetwork.org` was probed
+reachable at 12:04 the same day, so a Worker custom domain can serve without
+appearing where you expect it to. Treat the records table as one input and a
+probe as the answer.
+
+`audit.` is genuinely absent, and genuinely fine: it is `building` in the
+register, and the hub renders a `building` business as a disabled card rather
+than a link, which is exactly what that status is for.
 
 `go.` and `ops.` belong to `bba-growth-os`, which is not built here. Noted so
 nobody assumes an unfamiliar record is stale and deletes it. Worth knowing that
 this hub also uses a `/go/` *path* for outbound click counting — same word,
 different host, no collision, but do not let the two be confused.
 
-### `guides.` does not exist, and everything points at it
+### `guides.` works — and a note on how this file got that wrong
 
-This is the one that matters. `src/redirects.ts` sends every legacy store URL
-to `guides.bbanetwork.org`, and that hostname resolves to nothing. The full
-journey a customer takes — receipt link, apex, `308`, store — ends in "could
-not resolve host". The redirect layer is intact and correct and lands in a
-void.
+`src/redirects.ts` sends every legacy store URL to `guides.bbanetwork.org`, and
+that host answers. The redirect guard probed the whole path on 2026-08-24 at
+12:04 and reported `https://guides.bbanetwork.org  reachable`, with all four
+legacy paths returning the right status to the right destination.
 
-What makes it survivable is that no account is live and nothing has ever been
-sold, so nobody holds a link that is now broken. It is a punctured insurance
-policy, not an outage. It stops being survivable the moment the first sale
-happens.
+An earlier version of this section stated the opposite, in detail and with
+confidence: that the hostname resolved to nothing and every receipt link ended
+in "could not resolve host". That was never measured. It was inferred from a
+screenshot of the DNS records table which showed no `guides` row, and written
+up as established fact — including into a code comment on the guard itself.
 
-The daily redirect guard did not catch this, because it checked the status code
-and the `Location` header and never asked whether anything answered at the far
-end. It now probes the destination host as well.
+The lesson is worth more than the correction. **The DNS table and the Worker's
+own Custom Domains list can disagree, and neither is the thing that matters.**
+What matters is whether the host answers, which is a probe, not a reading. That
+is now exactly what the guard does, so the question does not have to be settled
+by looking at a dashboard again.
+
+The destination check that settled it is still worth having: it was added
+because the guard genuinely could not tell a live store from a dead one, and
+that gap was real even though the failure it was written for was not.
 
 ### `heartbeat.` is marked live and does not resolve
 
@@ -200,15 +211,14 @@ Gmail's "send as" over SMTP is the cheap way to do that later.
 The hub uses the same address (`src/businesses.ts`), so the hub and the store
 agree on where a buyer should write.
 
-### 3. Point `guides.` at the store — not done
+### 3. Point `guides.` at the store — done
 
-`guides.bbanetwork.org` has no DNS record, so it is attached to nothing. The
-`bba-network-store` Worker exists; the hostname was never bound to it, or was
-unbound during the apex move.
+`guides.bbanetwork.org` is attached to `bba-network-store` and answering.
 
-Attach it with the four taps below, on `bba-network-store`. Until then every
-rule in `src/redirects.ts` resolves to a dead host — see "guides. does not
-exist" above for what that does and does not cost today.
+It stays on this list because it is a standing dependency rather than a
+finished task: every rule in `src/redirects.ts` targets that host, so if it is
+ever detached the whole legacy path becomes a redirect into nothing. The daily
+guard probes the destination for exactly that reason.
 
 ### 4. Attach the apex to this hub
 
