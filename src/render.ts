@@ -203,7 +203,6 @@ ${body}
         <h4>Support</h4>
         <ul>
           <li><a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></li>
-          <li><a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></li>
         </ul>
       </div>
       <div>
@@ -216,9 +215,6 @@ ${body}
     </div>
     <div class="colophon">
       <span>&copy; ${new Date().getUTCFullYear()} BBA Network</span>
-      <a class="social" href="${INSTAGRAM_URL}" rel="me noopener">
-        ${icon('instagram')}<span>${INSTAGRAM_HANDLE}</span>
-      </a>
     </div>
   </div>
 </footer>
@@ -351,6 +347,15 @@ export function renderAbout(): string {
     <p class="contact-line">
       <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>
     </p>
+
+    <a class="follow" href="${INSTAGRAM_URL}" rel="me noopener">
+      <span class="follow-icon">${icon('instagram', 'icon')}</span>
+      <span class="follow-text">
+        <strong>${INSTAGRAM_HANDLE}</strong>
+        <span>Follow BBA Network on Instagram</span>
+      </span>
+      <span class="follow-go">${icon('arrow-right')}</span>
+    </a>
     </div>
   </div>
 </section>`;

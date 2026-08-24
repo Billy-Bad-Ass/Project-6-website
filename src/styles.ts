@@ -448,13 +448,40 @@ footer a:hover { color: var(--text); text-decoration: underline; text-underline-
 }
 .colophon a { font-size: inherit; }
 
-.social {
-  display: inline-flex; align-items: center; gap: .5rem;
-  color: var(--text-dim); text-decoration: none;
-  transition: color .15s ease;
+/* The profile link on the About page.
+ *
+ * A panel rather than a line of colophon dust: it sits at the end of the page
+ * that is about the person behind the network, so it should be something you
+ * can see and aim at, not something you find by squinting at the bottom of
+ * every page. */
+.follow {
+  display: flex; align-items: center; gap: 1rem;
+  margin-top: 2.4rem; padding: 1.1rem 1.3rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-decoration: none; color: inherit;
+  max-width: 26rem;
+  transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
-.social:hover { color: var(--text); }
-.social .icon { font-size: 1.05rem; }
+.follow:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+.follow-icon {
+  display: grid; place-items: center; flex: none;
+  width: 46px; height: 46px; border-radius: 13px;
+  background: var(--accent-soft); color: var(--accent-text);
+  font-size: 1.5rem;
+}
+.follow-text { display: grid; gap: .1rem; min-width: 0; }
+.follow-text strong {
+  font-family: var(--display); font-size: 1.05rem; letter-spacing: -.01em; color: var(--text);
+}
+.follow-text span { font-size: .86rem; color: var(--text-muted); }
+.follow-go { margin-left: auto; color: var(--text-dim); flex: none; transition: transform .18s ease; }
+.follow:hover .follow-go { transform: translateX(3px); color: var(--accent-text); }
 
 /* ------------------------------------------------------------------ prose -- */
 
