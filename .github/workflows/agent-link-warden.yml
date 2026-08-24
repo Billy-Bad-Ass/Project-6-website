@@ -80,8 +80,28 @@ jobs:
           SITE_URL: ${{ vars.SITE_URL }}
           FALLBACK_URL: https://bbanetwork.org
 
+      # Can this run actually investigate?
+      #
+      # The step below needs a Claude credential. With neither secret set the
+      # action starts and fails, which turns a probe that worked into a red X
+      # and buries the finding it was reporting — a missing optional credential
+      # should never look like a broken check. `secrets` is not available in a
+      # step-level `if`, so the answer is computed here and read as an output.
+      - name: Is an investigator configured?
+        id: investigator
+        if: always()
+        run: |
+          if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] || [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
       - name: Investigate and report
-        if: steps.probe.outputs.problems != ''
+        if: steps.probe.outputs.problems != '' && steps.investigator.outputs.ready == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           # Prefer the subscription token when present: the action gives an API
@@ -103,6 +123,12 @@ jobs:
         env:
           SITE_URL: ${{ vars.SITE_URL }}
           FALLBACK_URL: https://bbanetwork.org
+
+      # The finding still has to surface when there is nobody to hand it to.
+      - name: Say it anyway if nothing could investigate
+        if: steps.probe.outputs.problems != '' && steps.investigator.outputs.ready != 'true'
+        run: |
+          echo "::warning title=A host in the register did not answer::${{ steps.probe.outputs.detail }}  No CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY is set, so no agent looked into it and no issue was opened."
 
       # Report into Project 4's console.
       #

@@ -98,7 +98,7 @@ Repository **secrets**:
 | `DASHBOARD_TOKEN` | every reporting step |
 | `CF_ACCESS_CLIENT_ID` | every reporting step, if the dashboard is behind Access |
 | `CF_ACCESS_CLIENT_SECRET` | every reporting step, if the dashboard is behind Access |
-| `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` | the agent workflows |
+| `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` | the investigate step in both agents |
 
 Prefer `CLAUDE_CODE_OAUTH_TOKEN`: on a Max plan those runs cost nothing, where
 an API key bills per token. The action gives the API key precedence when both
@@ -112,6 +112,24 @@ Repository **variable**:
 | `SITE_URL` | the deploy smoke test and both agent probes (defaults to `https://bbanetwork.org`) |
 
 `GITHUB_TOKEN` is provided automatically by Actions.
+
+### What happens with no Claude credential
+
+Each agent is two halves: a deterministic `curl` probe, and a step that hands
+any finding to Claude to investigate and open an issue. Only the second half
+needs a credential.
+
+With neither secret set, that step used to start anyway and fail — turning a
+probe that had worked into a red X, and burying the finding it was reporting
+inside a failed job. Both of the link warden's first two real findings were
+reported that way: the probe was right and said so, and the run still showed
+as failed for an unrelated reason.
+
+The step is now gated on a credential existing, and when there is none the
+finding is emitted as a `::warning` carrying the same detail. You lose the
+investigation and the issue; you do not lose the fact. The probe half — the
+half that actually knows whether a customer can reach anything — has never
+needed a credential and still does not.
 
 ### Reporting through Cloudflare Access
 
