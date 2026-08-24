@@ -277,9 +277,22 @@ export default {
           },
         });
 
-      /** Cheap liveness probe for Project 4's heartbeat-watchdog. */
+      /**
+       * Cheap liveness probe for Project 4's heartbeat-watchdog.
+       *
+       * `scheduled` lists what this Worker runs on a timer. It is here because
+       * there was no way to answer "is the deployed Worker the one with the
+       * cron checks in it" without reading the deployed script — and a health
+       * endpoint that describes what the service is responsible for is more
+       * use than one that only says it is awake.
+       */
       case '/api/health':
-        return json({ ok: true, service: 'bba-network-hub', businesses: PUBLIC_BUSINESSES.length });
+        return json({
+          ok: true,
+          service: 'bba-network-hub',
+          businesses: PUBLIC_BUSINESSES.length,
+          scheduled: Object.values(SCHEDULE),
+        });
 
       /**
        * The design system, for the other subdomains.

@@ -3,9 +3,15 @@ name: Deploy
 # The hub is the apex. A broken deploy here does not just break a marketing
 # page — it breaks the redirects that carry paying customers to their
 # downloads. So the tests are a gate, not a parallel job.
+#
+# MANUAL ONLY, deliberately, and temporarily. Cloudflare Workers Builds now
+# deploys on push to `main`; leaving this workflow on the same trigger would
+# mean two systems racing to deploy the same commit and no way to tell which
+# one succeeded. Keeping it dispatchable is the safety net — if Workers Builds
+# turns out not to work, this still ships a fix without any repo change.
+#
+# Delete this file once Workers Builds has deployed successfully.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
