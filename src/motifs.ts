@@ -183,6 +183,21 @@ export const CARD_ART: Record<string, () => string> = {
 };
 
 /**
+ * The negative of the bullet: the bar, with the terminator missing.
+ *
+ * Used for the "what you may not do" lists. A red cross would be the obvious
+ * choice and the wrong one — these are the terms of a licence, not errors the
+ * reader has made. The signal simply stops short of landing, which says the
+ * same thing without telling somebody off for reading.
+ */
+export function bulletStop(): string {
+  return `<svg class="bullet" viewBox="0 0 12 12" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <rect x="1" y="5" width="7" height="2" rx="1" fill="currentColor" opacity=".28"/>
+  <rect x="9.5" y="5" width="3" height="2" rx="1" fill="currentColor" opacity=".14"/>
+</svg>`;
+}
+
+/**
  * The square terminator from the mark, used as a list bullet.
  *
  * Replaces a generic tick. A tick says "included"; the terminator says "this is

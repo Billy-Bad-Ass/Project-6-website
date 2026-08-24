@@ -11,7 +11,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { renderHome, renderAbout, renderNotFound, renderSitemap, esc } from '../src/render';
+import {
+  renderHome,
+  renderAbout,
+  renderLicence,
+  renderNotFound,
+  renderSitemap,
+  esc,
+} from '../src/render';
 import { PUBLIC_BUSINESSES, BUSINESSES } from '../src/businesses';
 import { STYLES } from '../src/styles';
 
@@ -263,3 +270,76 @@ describe('the footer Support column', () => {
     expect(renderAbout()).toContain('hello@bbanetwork.org');
   });
 });
+
+describe('the Licence page', () => {
+  const html = renderLicence();
+  // The source wraps prose across lines, so a phrase can straddle a newline
+  // and several spaces. Assert against the text a reader sees, not the
+  // whitespace the template happens to use.
+  const flat = html.replace(/\s+/g, ' ');
+
+  it('covers both businesses, not just the downloads', () => {
+    expect(html).toContain('id="guides"');
+    expect(html).toContain('id="audit"');
+    expect(html).toContain('Printable guides');
+    expect(html).toContain('Website Health Check');
+  });
+
+  it('states refund terms for each, because they differ', () => {
+    // Files delivered instantly vs a service a person performs — the right to
+    // cancel works differently, and one page covering both has to say so twice.
+    expect(flat).toContain('the usual right to cancel does not apply');
+    expect(flat).toContain('nothing is delivered until a person has looked at your site');
+  });
+
+  it('quotes the health check in the currency it is actually sold in', () => {
+    // Live Stripe has it at USD 100. A refunds page naming the wrong currency
+    // is the kind of small error that becomes an argument later.
+    expect(html).toContain('$100');
+    expect(html).not.toContain('£100');
+  });
+
+  it('points refunds at the support address, not the general one', () => {
+    const refunds = flat.slice(flat.indexOf('<h3>Refunds</h3>'));
+    expect(refunds.slice(0, 700)).toContain('support@bbanetwork.org');
+  });
+
+  it('does not double-escape the ampersand in its title', () => {
+    // layout() escapes the title, so an entity written here comes out as
+    // "Licence &amp;amp; refunds" in the browser tab.
+    expect(html).toContain('<title>Licence &amp; refunds — BBA Network</title>');
+    expect(html).not.toContain('&amp;amp;');
+  });
+
+  it('is linked from the nav, between About and Contact', () => {
+    const nav = html.slice(html.indexOf('<nav aria-label="Primary">'));
+    const block = nav.slice(0, nav.indexOf('</nav>'));
+    expect(block.indexOf('/about')).toBeLessThan(block.indexOf('/licence'));
+    expect(block.indexOf('/licence')).toBeLessThan(block.indexOf('mailto:'));
+  });
+
+  it('is in the sitemap', () => {
+    expect(renderSitemap()).toContain('<loc>https://bbanetwork.org/licence</loc>');
+  });
+
+  it('is well-formed', () => {
+    // Same check the other pages get; this one is the longest and most hand-written.
+    const stack: string[] = [];
+    const VOID = new Set(['area','base','br','col','embed','hr','img','input','link','meta','source','track','wbr']);
+    const pattern = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?(\/?)>/g;
+    let m: RegExpExecArray | null;
+    let error: string | null = null;
+    while ((m = pattern.exec(html)) !== null) {
+      const [, closing, raw, self] = m;
+      const tag = raw!.toLowerCase();
+      if (VOID.has(tag) || self === '/') continue;
+      if (closing === '/') {
+        const top = stack.pop();
+        if (top !== tag) { error = `</${tag}> closes <${top}>`; break; }
+      } else stack.push(tag);
+    }
+    expect(error).toBeNull();
+    expect(stack).toEqual([]);
+  });
+});
+

@@ -497,6 +497,26 @@ footer a:hover { color: var(--text); text-decoration: underline; text-underline-
 .checklist { list-style: none; margin: 1.2rem 0 1.6rem; padding: 0; display: grid; gap: .7rem; }
 .checklist li { display: flex; gap: .7rem; align-items: flex-start; color: var(--text-muted); }
 
+/* Two sets of terms on one page, so say which is which before either list. */
+.applies {
+  font-size: .92rem; color: var(--text-dim);
+  border-left: 2px solid var(--line-strong);
+  padding-left: .9rem; margin-top: -.3rem;
+}
+
+.jump { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1.6rem 0 .5rem; }
+.jump a {
+  font-size: .88rem; text-decoration: none; color: var(--text-muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: .4rem .85rem;
+  transition: border-color .15s ease, color .15s ease;
+}
+.jump a:hover { color: var(--text); border-color: var(--line-strong); }
+
+.prose h3 { font-family: var(--display); font-size: 1.02rem; margin: 1.9rem 0 .5rem; letter-spacing: -.01em; }
+.checklist.may-not li { color: var(--text-dim); }
+
+.note-small { font-size: .9rem; color: var(--text-dim); margin-top: 2.2rem; }
+
 .contact-line { font-size: 1.1rem; }
 .contact-line a { font-weight: 600; }
 .prose a { color: var(--accent-text); text-underline-offset: 3px; }

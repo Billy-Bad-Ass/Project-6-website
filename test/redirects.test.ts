@@ -51,11 +51,10 @@ describe('legacy apex redirects', () => {
       expect(at('/products')!.location).toBe('https://guides.bbanetwork.org/products');
     });
 
-    it('carries the post-checkout and licence pages across', () => {
+    it('carries the post-checkout page across', () => {
       expect(at('/success?session_id=cs_test_1')!.location).toBe(
         'https://guides.bbanetwork.org/success?session_id=cs_test_1',
       );
-      expect(at('/licence')!.status).toBe(301);
     });
   });
 
@@ -64,6 +63,14 @@ describe('legacy apex redirects', () => {
       expect(at('/')).toBeNull();
       expect(at('/about')).toBeNull();
       expect(at('/go/guides')).toBeNull();
+    });
+
+    it('keeps /licence, which the hub now serves for the whole network', () => {
+      // It used to 301 to the store. The hub's own licence page covers the
+      // guides and the health check, so a receipt link to bbanetwork.org/licence
+      // now lands on terms that describe what was bought rather than being
+      // bounced to a page about only half the network.
+      expect(at('/licence')).toBeNull();
     });
 
     it('keeps its own /api/stats and /api/health despite the /api rule', () => {

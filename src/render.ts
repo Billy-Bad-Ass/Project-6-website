@@ -17,7 +17,7 @@ import {
   INSTAGRAM_HANDLE,
 } from './businesses';
 import type { Business } from './businesses';
-import { signalField, rule, bullet, icon, CARD_ART } from './motifs';
+import { signalField, rule, bullet, bulletStop, icon, CARD_ART } from './motifs';
 import { STYLES } from './styles';
 
 /**
@@ -183,6 +183,7 @@ function layout({ title, description, path, body }: PageOptions): string {
     <nav aria-label="Primary">
       <a href="/#businesses">Businesses</a>
       <a href="/about">About</a>
+      <a href="/licence">Licence</a>
       <a href="mailto:${CONTACT_EMAIL}">Contact</a>
     </nav>
   </div>
@@ -209,6 +210,7 @@ ${body}
         <h4>Network</h4>
         <ul>
           <li><a href="/about">About BBA Network</a></li>
+          <li><a href="/licence">Licence &amp; refunds</a></li>
           <li><a href="/api/stats">Network status</a></li>
         </ul>
       </div>
@@ -370,6 +372,164 @@ export function renderAbout(): string {
   });
 }
 
+/** Allowed / not-allowed lists, using the mark's own bullet and its negative. */
+function permissions(allowed: string[], refused: string[]): string {
+  const list = (items: string[], marker: () => string, kind: string) =>
+    `<ul class="checklist ${kind}">${items
+      .map((t) => `<li>${marker()}<span>${esc(t)}</span></li>`)
+      .join('')}</ul>`;
+
+  return `<h3>What you may do</h3>
+    ${list(allowed, bullet, 'may')}
+    <h3>What you may not do</h3>
+    ${list(refused, bulletStop, 'may-not')}`;
+}
+
+export function renderLicence(): string {
+  const body = `
+<section class="section">
+  <div class="wrap">
+    <div class="prose">
+      <p class="eyebrow">Licence &amp; refunds</p>
+      <h1>Licence &amp; refunds</h1>
+      <p class="lead">
+        What you can do with what you buy, and how to get your money back if it was not
+        worth it. Two businesses, two sets of terms &mdash; they sell different things.
+      </p>
+      <nav class="jump" aria-label="On this page">
+        <a href="#guides">Printable guides</a>
+        <a href="#audit">Website Health Check</a>
+      </nav>
+
+      <h2 id="guides">Printable guides</h2>
+      <p class="applies">
+        Applies to anything bought from <a href="https://guides.bbanetwork.org/">BBA Guides</a>
+        &mdash; the downloadable PDFs.
+      </p>
+
+      ${permissions(
+        [
+          'Print as many copies as you like, for as long as you like, for your own use.',
+          'Photocopy the log sheets and blank templates — several are designed for it.',
+          'Pin them up at home, in a shared workshop, or at your desk at work.',
+          'Write on them, laminate them, mark them up.',
+        ],
+        [
+          'Resell or redistribute the files, free or paid.',
+          'Upload them to a file-sharing site, Discord, or a public drive.',
+          'Sell printed copies.',
+          'Republish the content as your own, in whole or in part.',
+        ],
+      )}
+
+      <h3>Refunds</h3>
+      <p>
+        These are digital files delivered immediately, so the usual right to cancel does not
+        apply once the download has started. That said &mdash; if a file is broken, will not
+        open, or is plainly not what the listing described, email
+        <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> and you will get a refund. No
+        form to fill in.
+      </p>
+
+      <h3>Download links</h3>
+      <p>
+        Links expire 72 hours after purchase. That is a security measure, not a limit on what
+        you bought &mdash; email support with your order reference and you will get fresh
+        links. Keep the receipt email; it is the proof of purchase.
+      </p>
+
+      <h3>Updates</h3>
+      <p>
+        When a guide is corrected or expanded, buyers get the new version at no cost. Email
+        support with your order reference.
+      </p>
+
+      <h3>Payment and data</h3>
+      <p>
+        Payments are processed by Stripe. We never see or store your card details. The only
+        thing this store keeps is what Stripe records about the order &mdash; your email
+        address, so the files can be delivered, and what you bought.
+      </p>
+    </div>
+  </div>
+</section>
+
+${rule()}
+
+<section class="section">
+  <div class="wrap">
+    <div class="prose">
+      <h2 id="audit">Website Health Check</h2>
+      <p class="applies">
+        Applies to the <a href="https://audit.bbanetwork.org/">Website Health Check</a>
+        &mdash; a report written for you, not a file off a shelf.
+      </p>
+
+      ${permissions(
+        [
+          'Use the report inside your business, for as long as you like.',
+          'Send it to your developer, designer, or whoever does the work.',
+          'Print it, copy it, and paste from it into your own tickets and briefs.',
+          'Act on every recommendation in it. That is what it is for.',
+        ],
+        [
+          'Resell the report, or pass it off as your own audit of someone else.',
+          'Publish it in full, or quote it as an endorsement of your site.',
+          'Order one report and share it across several unrelated businesses.',
+        ],
+      )}
+
+      <h3>Refunds</h3>
+      <p>
+        This is a service, so nothing is delivered until a person has looked at your site.
+        If the report is not useful &mdash; including the case where your site turns out to be
+        fine and there is little to say &mdash; email
+        <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> and you will get a refund.
+        Charging $100 to say &ldquo;looks good&rdquo; is not a business worth running.
+      </p>
+
+      <h3>Delivery</h3>
+      <p>
+        One working day from the point you have paid and sent the address of the site.
+        Ordered on a Tuesday morning, you have it by Wednesday; ordered on a Friday evening,
+        you have it by Monday. If something is going to take longer than that, you will hear
+        why before the day is out rather than after it.
+      </p>
+
+      <h3>What the report is, and is not</h3>
+      <p>
+        It is one person&rsquo;s considered reading of your site, backed by measurements where
+        measurements exist. It is not a legal, accessibility, or security certification, and
+        it does not promise a particular outcome in search rankings or sales &mdash; anyone
+        selling you that is guessing.
+      </p>
+
+      <h3>Payment and data</h3>
+      <p>
+        Payments are processed by Stripe. We never see or store your card details. What is
+        kept is the order Stripe records, your email address so the report can be sent, and
+        the address of the site you asked about. Nothing about your site is published or
+        passed on.
+      </p>
+
+      <p class="note-small">
+        Questions about any of this before you buy:
+        <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.
+      </p>
+    </div>
+  </div>
+</section>`;
+
+  return layout({
+    title: 'Licence & refunds — BBA Network',
+    description:
+      'What you can do with what you buy from BBA Network, and how refunds work — for the ' +
+      'printable guides and for the Website Health Check.',
+    path: '/licence',
+    body,
+  });
+}
+
 export function renderNotFound(): string {
   const body = `
 <section class="section">
@@ -400,7 +560,7 @@ export function renderNotFound(): string {
 
 /** Only live, listed businesses belong in a sitemap. */
 export function renderSitemap(): string {
-  const urls = ['/', '/about']
+  const urls = ['/', '/about', '/licence']
     .map((p) => `  <url><loc>https://${APEX}${p}</loc></url>`)
     .join('\n');
 
