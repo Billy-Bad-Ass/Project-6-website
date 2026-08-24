@@ -170,6 +170,14 @@ must not fail a deploy that succeeded. For a long time it did that with a bare
 looked identical — and the steps reported nothing at all, in every run, for as
 long as `DASHBOARD_URL` went unset.
 
-They now distinguish the three cases and emit a `::warning` for the two that
-are not success. The job still passes; the log says what happened. A silent
-integration is worse than a missing one, because a missing one gets noticed.
+They now distinguish the cases and emit a `::warning` for each one that is not
+success. The job still passes; the log says what happened. A silent integration
+is worse than a missing one, because a missing one gets noticed.
+
+They also read the **status code** rather than trusting curl's exit code, which
+took two attempts to get right. `curl -sf` does not fail on a `3xx` — `-f`
+covers 4xx and 5xx only — so the first version of this fix accepted Access's
+`302` to its login page as a successful post and printed "Reported to" over a
+run that was never recorded. For an API call, a redirect is not a success; it
+is the single most likely symptom of the Access problem described above, and
+it now says so by name.

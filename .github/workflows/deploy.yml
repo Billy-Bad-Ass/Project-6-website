@@ -215,11 +215,30 @@ jobs:
             "${GITHUB_SHA:0:7}" \
             "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
 
-          if curl -sf -X POST "$DASHBOARD_URL/api/agent-runs" "${ARGS[@]}" -d "$PAYLOAD"; then
-            echo "Reported to $DASHBOARD_URL"
-          else
-            echo "::warning title=Dashboard did not accept the run::POST to $DASHBOARD_URL/api/agent-runs failed. If the dashboard is behind Cloudflare Access this needs a service token; see docs/AGENTS.md."
-          fi
+          # Status code, not curl's exit code. `curl -sf` treats a 3xx as
+          # success — `-f` only fails on 4xx and 5xx — so a redirect to the
+          # Cloudflare Access login page came back as exit 0 and this step
+          # printed "Reported to" over a run that was never recorded. That is
+          # the exact failure the step was rewritten to prevent, so it now
+          # reads the code and insists on a 2xx.
+          CODE=$(curl -s -o /tmp/report-body -w '%{http_code}' \
+                   -X POST "$DASHBOARD_URL/api/agent-runs" "${ARGS[@]}" -d "$PAYLOAD")
+
+          case "$CODE" in
+            2*)
+              echo "Reported to $DASHBOARD_URL ($CODE)"
+              ;;
+            3*)
+              echo "::warning title=Dashboard redirected the run::POST to $DASHBOARD_URL/api/agent-runs answered $CODE instead of recording anything — a redirect to a login page, which means Cloudflare Access is in front of it and this runner has no service token. See docs/AGENTS.md."
+              ;;
+            000)
+              echo "::warning title=Dashboard did not answer::POST to $DASHBOARD_URL/api/agent-runs did not connect at all. Check the hostname resolves."
+              ;;
+            *)
+              echo "::warning title=Dashboard refused the run::POST to $DASHBOARD_URL/api/agent-runs answered $CODE. A 401 means DASHBOARD_TOKEN does not match the value set on the Worker."
+              head -c 200 /tmp/report-body || true
+              ;;
+          esac
         env:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
           DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
