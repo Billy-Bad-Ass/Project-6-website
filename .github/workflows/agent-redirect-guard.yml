@@ -78,11 +78,12 @@ jobs:
           check "/api/checkout"             308 "$STORE/api/checkout"
           check "/products/espresso-dial-in-card" 301 "$STORE/products/espresso-dial-in-card"
           check "/success"                  301 "$STORE/success"
-          check "/licence"                  301 "$STORE/licence"
 
           # The hub must keep its own endpoints rather than forwarding them to
-          # a store that has never heard of them.
-          for own in /api/health /api/stats; do
+          # a store that has never heard of them. /licence is here rather than
+          # in the redirect list above because the hub now serves the network's
+          # licence itself.
+          for own in /api/health /api/stats /licence; do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE$own" || echo 000)
             printf '  %-42s %s\n' "$own" "$code"
             [ "$code" = "200" ] || FAILURES="$FAILURES\n  $own expected 200, got $code"

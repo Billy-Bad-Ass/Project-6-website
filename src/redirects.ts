@@ -82,12 +82,6 @@ export const LEGACY_RULES: Rule[] = [
     status: 301,
     why: 'Post-checkout landing. Reached mid-purchase, so it must not 404.',
   },
-  {
-    prefix: '/licence',
-    target: `${GUIDES}/licence`,
-    status: 301,
-    why: 'The licence a buyer is agreeing to. Linked from receipts.',
-  },
 ];
 
 /**
@@ -99,8 +93,15 @@ export const LEGACY_RULES: Rule[] = [
  * status endpoints to a store that has never heard of them. Project 4's
  * heartbeat-watchdog polls `/api/health`; a 308 to another host is exactly the
  * kind of "monitoring that monitors the wrong thing" that hides an outage.
+ *
+ * `/licence` was forwarded to the store until the hub grew a licence page of
+ * its own. It now covers both businesses — the guides and the health check —
+ * so the apex serving it is not a regression on the redirect it replaces: a
+ * receipt linking to bbanetwork.org/licence lands on terms that still describe
+ * what was bought, and now describes the other business too. The store keeps
+ * its own copy at guides.bbanetwork.org/licence; this is the network's.
  */
-const HUB_OWNED = new Set(['/api/stats', '/api/health']);
+const HUB_OWNED = new Set(['/api/stats', '/api/health', '/licence']);
 
 export interface Redirect {
   location: string;

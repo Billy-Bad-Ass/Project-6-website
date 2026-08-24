@@ -16,7 +16,7 @@
  */
 
 import { legacyRedirect } from './redirects';
-import { renderHome, renderAbout, renderNotFound, renderSitemap } from './render';
+import { renderHome, renderAbout, renderLicence, renderNotFound, renderSitemap } from './render';
 import { BUSINESSES, PUBLIC_BUSINESSES, businessById, destination, APEX } from './businesses';
 import { BRAND_CSS } from './styles';
 
@@ -167,6 +167,15 @@ export default {
 
       case '/about':
         return html(renderAbout());
+
+      /**
+       * The network's licence and refund terms, for both businesses.
+       *
+       * This path used to 301 to the store — see the note on HUB_OWNED in
+       * src/redirects.ts for why the hub took it back.
+       */
+      case '/licence':
+        return html(renderLicence());
 
       /**
        * The network's own status, as JSON. Public because there is nothing
