@@ -211,11 +211,15 @@ describe('rendered markup is well-formed', () => {
 });
 
 describe('the Instagram link', () => {
-  const html = renderHome();
+  const about = renderAbout();
+  const home = renderHome();
 
-  it('appears once, in the colophon', () => {
-    expect(html.split('instagram.com/bba.network').length - 1).toBe(1);
-    expect(html).toContain('@bba.network');
+  it('lives on the About page, not in every page footer', () => {
+    // It belongs with the person the page is about, not as colophon dust
+    // repeated on every page of the site.
+    expect(about.split('instagram.com/bba.network').length - 1).toBe(1);
+    expect(about).toContain('@bba.network');
+    expect(home).not.toContain('instagram.com');
   });
 
   it('carries no share-session or campaign parameters', () => {
@@ -223,22 +227,39 @@ describe('the Instagram link', () => {
     // identifier, and `utm_source=qr` would tag every visitor arriving from
     // this site as a QR scan in Instagram's analytics. Publishing either is a
     // small, permanent lie about where the traffic came from.
-    expect(html).not.toContain('igsi');
-    expect(html).not.toContain('utm_source');
-    expect(html).toContain('href="https://www.instagram.com/bba.network"');
+    expect(about).not.toContain('igsi');
+    expect(about).not.toContain('utm_source');
+    expect(about).toContain('href="https://www.instagram.com/bba.network"');
   });
 
   it('does not open a hole for tab-nabbing', () => {
-    const anchor = html.slice(html.indexOf('class="social"'));
+    const anchor = about.slice(about.indexOf('class="follow"'));
     expect(anchor.slice(0, 200)).toContain('noopener');
   });
 
-  it('has left the contact address out of the colophon', () => {
-    const colophon = html.slice(html.indexOf('class="colophon"'), html.indexOf('</footer>'));
+  it('leaves the colophon to the copyright line alone', () => {
+    const colophon = home.slice(home.indexOf('class="colophon"'), home.indexOf('</footer>'));
     expect(colophon).not.toContain('hello@bbanetwork.org');
-    // Still reachable from the footer's Support column and the nav, though —
-    // removing it from one slot should not remove it from the site.
-    expect(html).toContain('hello@bbanetwork.org');
+    expect(colophon).not.toContain('instagram');
   });
 });
 
+describe('the footer Support column', () => {
+  const html = renderHome();
+  const support = html.slice(html.indexOf('<h4>Support</h4>'));
+  const column = support.slice(0, support.indexOf('</ul>'));
+
+  it('lists the support address only', () => {
+    // A buyer with a broken download needs one address, not a choice between
+    // two. hello@ is for general enquiries and belongs elsewhere.
+    expect(column).toContain('support@bbanetwork.org');
+    expect(column).not.toContain('hello@bbanetwork.org');
+  });
+
+  it('has not removed the contact address from the site', () => {
+    // Still in the nav and on the About page — dropping it from one column
+    // should not make it unreachable.
+    expect(html).toContain('hello@bbanetwork.org');
+    expect(renderAbout()).toContain('hello@bbanetwork.org');
+  });
+});
