@@ -183,19 +183,45 @@ jobs:
             head -c 300 /tmp/www-body || true
           fi
 
-      # Report into Project 4's console. `|| true` because losing a log entry
-      # must never fail a deploy that already succeeded.
+      # Report into Project 4's console.
+      #
+      # This never fails the job — losing a log entry must not fail work that
+      # already succeeded. But it no longer fails *silently*. A bare `|| true`
+      # made an unset URL, a rejected token and a successful post look
+      # identical, which is how every run so far reported nothing at all
+      # without anybody noticing.
+      #
+      # The two CF-Access headers are sent only when both are set.
+      # heartbeat.bbanetwork.org sits behind Cloudflare Access at *Worker*
+      # scope, which protects /api/agent-runs along with the dashboard itself,
+      # so an unauthenticated POST from a runner gets the login redirect rather
+      # than the API. An Access service token is how a machine gets through.
+      # See docs/AGENTS.md.
       - name: Report the run
         if: always()
         run: |
-          curl -sf -X POST "$DASHBOARD_URL/api/agent-runs" \
-            -H "Authorization: Bearer $DASHBOARD_TOKEN" \
-            -H 'Content-Type: application/json' \
-            -d "{\"agent\":\"deploy\",\"project_slug\":\"project-6\",\"trigger\":\"github\",
-                 \"status\":\"${{ job.status == 'success' && 'ok' || 'failed' }}\",
-                 \"summary\":\"Apex hub deploy from ${GITHUB_SHA:0:7}.\",
-                 \"artifact_url\":\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
-            || true
+          if [ -z "$DASHBOARD_URL" ]; then
+            echo "::warning title=Dashboard reporting is off::DASHBOARD_URL is unset, so this run will not appear in Project 4's console."
+            exit 0
+          fi
+
+          ARGS=(-H "Authorization: Bearer $DASHBOARD_TOKEN" -H 'Content-Type: application/json')
+          if [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ]; then
+            ARGS+=(-H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET")
+          fi
+
+          PAYLOAD=$(printf '{"agent":"deploy","project_slug":"project-6","trigger":"github","status":"%s","summary":"Apex hub deploy from %s.","artifact_url":"%s"}' \
+            "${{ job.status == 'success' && 'ok' || 'failed' }}" \
+            "${GITHUB_SHA:0:7}" \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
+
+          if curl -sf -X POST "$DASHBOARD_URL/api/agent-runs" "${ARGS[@]}" -d "$PAYLOAD"; then
+            echo "Reported to $DASHBOARD_URL"
+          else
+            echo "::warning title=Dashboard did not accept the run::POST to $DASHBOARD_URL/api/agent-runs failed. If the dashboard is behind Cloudflare Access this needs a service token; see docs/AGENTS.md."
+          fi
         env:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
           DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}

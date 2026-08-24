@@ -96,6 +96,8 @@ Repository **secrets**:
 | `CLOUDFLARE_ACCOUNT_ID` | deploy |
 | `DASHBOARD_URL` | every reporting step |
 | `DASHBOARD_TOKEN` | every reporting step |
+| `CF_ACCESS_CLIENT_ID` | every reporting step, if the dashboard is behind Access |
+| `CF_ACCESS_CLIENT_SECRET` | every reporting step, if the dashboard is behind Access |
 | `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` | the agent workflows |
 
 Prefer `CLAUDE_CODE_OAUTH_TOKEN`: on a Max plan those runs cost nothing, where
@@ -110,3 +112,46 @@ Repository **variable**:
 | `SITE_URL` | the deploy smoke test and both agent probes (defaults to `https://bbanetwork.org`) |
 
 `GITHUB_TOKEN` is provided automatically by Actions.
+
+### Reporting through Cloudflare Access
+
+`heartbeat.bbanetwork.org` is protected by Cloudflare Access, and the policy is
+scoped to the **Worker** rather than to a hostname. That is the right choice for
+a dashboard showing revenue — it covers every hostname routed there, including
+ones added later — but it also covers `/api/agent-runs`, which is not a page a
+human visits. It is the endpoint every project's CI posts to.
+
+So an unauthenticated `POST` from a runner does not reach the API at all. Access
+answers first, with a `302` to its login page, and `curl -f` reports failure.
+No amount of correct `DASHBOARD_TOKEN` helps: that token is checked by the
+application, and the request never gets to the application.
+
+A machine gets through with an **Access service token** — a client ID and
+secret sent as headers, which Access checks at the edge before passing the
+request on. Set one up once:
+
+1. Zero Trust → **Access controls** → **Service credentials** → **Service
+   Tokens** → **Create Service Token**. Copy the Client ID and Client Secret;
+   the secret is shown once.
+2. Open the `bba-heartbeat` application → **Policies** → add a second policy
+   with Action **Service Auth**, Include → **Service Token** → the one you just
+   made. Leave the existing "Only me" policy alone: that is what lets *you* in
+   from a browser, and Service Auth is what lets the runner in. An application
+   needs both.
+3. Put the pair in this repository's Actions secrets as `CF_ACCESS_CLIENT_ID`
+   and `CF_ACCESS_CLIENT_SECRET`.
+
+The workflows send both headers only when both are set, so nothing breaks if
+the dashboard is ever moved out from behind Access.
+
+### Why the reporting steps warn
+
+Every reporting step ends without failing the job, because losing a log entry
+must not fail a deploy that succeeded. For a long time it did that with a bare
+`|| true`, which meant an unset URL, a rejected token and a successful post all
+looked identical — and the steps reported nothing at all, in every run, for as
+long as `DASHBOARD_URL` went unset.
+
+They now distinguish the three cases and emit a `::warning` for the two that
+are not success. The job still passes; the log says what happened. A silent
+integration is worse than a missing one, because a missing one gets noticed.
