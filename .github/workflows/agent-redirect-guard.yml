@@ -38,17 +38,33 @@ jobs:
           FAILURES=""
 
           # Check we are probing this hub before asserting anything about it.
-          # The apex still serves Project 2's store until the custom domain is
-          # moved by hand, and a guard that reports the store's answers as this
-          # repo's failures would open an urgent issue every morning about
-          # nothing. An agent that cries wolf daily is worse than no agent.
+          #
+          # This used to exit 0 — while the apex still belonged to Project 2's
+          # store, reporting the store's answers as this repo's failures would
+          # have opened an urgent issue every morning about nothing.
+          #
+          # The apex is attached to this hub now, so that same condition means
+          # the opposite: the custom domain has been detached or reassigned,
+          # and every receipt link pointing here is dead. It is the single
+          # worst thing that can happen to this repository, so it is the
+          # failure reported first and by name.
           # grep with a whitespace class, not a glob: /api/health is
           # pretty-printed, so the body reads `"service": "..."` with a space.
           HEALTH=$(curl -sf --max-time 20 "$BASE/api/health" || echo '')
           if ! echo "$HEALTH" | grep -q '"service"[[:space:]]*:[[:space:]]*"bba-network-hub"'; then
-            echo "skipped=true" >> "$GITHUB_OUTPUT"
-            echo "failed=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Nothing to guard yet::$BASE is not serving this hub, so its redirects are not in play. Expected until the apex is attached — see docs/DOMAINS.md."
+            if [ -z "$HEALTH" ]; then
+              WHY="$BASE did not answer at all. The hostname resolves to nothing, or the Worker behind it is gone."
+            else
+              WHY="$BASE answered with something other than this hub, so the hostname is attached to a different Worker."
+            fi
+            {
+              echo "failed=true"
+              echo "detail<<EOF"
+              echo "  $WHY"
+              echo "  Every legacy /api/download link in an already-sent receipt is dead while this is true."
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "::error title=The apex is not serving this hub::$WHY See docs/DOMAINS.md, 'Attaching a domain to a Worker'."
             exit 0
           fi
 
@@ -102,7 +118,7 @@ jobs:
           fi
         env:
           SITE_URL: ${{ vars.SITE_URL }}
-          FALLBACK_URL: https://bba-network-hub.bbacentralworkspace.workers.dev
+          FALLBACK_URL: https://bbanetwork.org
 
       - name: Investigate and report
         if: steps.probe.outputs.failed == 'true'
@@ -126,17 +142,17 @@ jobs:
             --allowed-tools Read,Bash,Grep,Glob,WebFetch
         env:
           SITE_URL: ${{ vars.SITE_URL }}
-          FALLBACK_URL: https://bba-network-hub.bbacentralworkspace.workers.dev
+          FALLBACK_URL: https://bbanetwork.org
 
       - name: Report the run
         if: always()
         run: |
           STATUS="ok"
           SUMMARY="Legacy customer paths all redirect correctly."
-          if [ "${{ steps.probe.outputs.skipped }}" = "true" ]; then
-            STATUS="skipped"
-            SUMMARY="Hub is not serving the probed host yet; nothing to guard."
-          elif [ "${{ steps.probe.outputs.failed }}" = "true" ]; then
+          # No `skipped` outcome any more — see the note on the identity check
+          # above. The apex is attached, so a stranger answering on it is the
+          # emergency this agent exists for, not a reason to stand down.
+          if [ "${{ steps.probe.outputs.failed }}" = "true" ]; then
             STATUS="failed"
             SUMMARY="Legacy redirect check FAILED — customer download links may be broken."
           fi
