@@ -67,6 +67,7 @@ these are no longer preparations, they are open gaps on a live domain.
 | 3. `guides.` points at the store | Done. Probed reachable 2026-08-24 12:04. |
 | 4. Apex attached to this hub | **Done.** |
 | 5. `www.` attached to this hub | **No. There is no DNS record for it.** |
+| 6. `heartbeat.` attached, behind Access | Done. Probed `302` 2026-08-24 12:11. |
 
 ### What the zone actually contains
 
@@ -118,19 +119,31 @@ The destination check that settled it is still worth having: it was added
 because the guard genuinely could not tell a live store from a dead one, and
 that gap was real even though the failure it was written for was not.
 
-### `heartbeat.` is marked live and does not resolve
+### `heartbeat.` — resolved, and how
 
 `src/businesses.ts` records `heartbeat` as `status: 'live'`, which by the rule
-at the top of that file is a promise that the host is reachable. It is not: the
-link warden's first scheduled run reported `heartbeat=heartbeat.bbanetwork.org:000000`
-at 09:32 on 2026-08-24, `000` being no connection at all.
+at the top of that file is a promise that the host is reachable. For a while it
+was not: the link warden's first scheduled run reported
+`heartbeat=heartbeat.bbanetwork.org:000000` at 09:32 on 2026-08-24, `000` being
+no connection at all.
 
-**The register has deliberately not been edited.** Rule 2 in `CLAUDE.md` says
-never flip `live` back to `building` to make a failing check pass, because that
-hides an outage instead of reporting one. This is precisely that case. The fix
-is to attach `heartbeat.bbanetwork.org` to the `bba-heartbeat` Worker, which
-exists; the register is already telling the truth about what is supposed to be
-there.
+The register was deliberately **not** edited to match. Rule 2 in `CLAUDE.md`
+says never flip `live` back to `building` to make a failing check pass, because
+that hides an outage instead of reporting one. The register was right about what
+was supposed to exist; the infrastructure was what disagreed. It was fixed by
+attaching the host, and the warden read `302` at 12:11.
+
+`302`, not `200`, and that is the healthy answer: the Worker is protected by
+Cloudflare Access, so an unauthenticated probe gets redirected to a login page.
+The warden accepts `2*` or `3*` for exactly this reason — a locked door is a
+door that answers.
+
+**The Access policy is scoped to the Worker, not to a hostname.** That
+distinction cost an afternoon and is worth keeping: an application whose
+destination is `bba-heartbeat.bbacentralworkspace.workers.dev` protects that
+name and nothing else, so attaching a custom domain would have opened an
+unprotected second door onto the same revenue figures. Worker scope covers
+every hostname routed to it, including ones added later.
 
 ### 1. Repoint the Stripe webhook — done
 
