@@ -95,6 +95,31 @@ jobs:
           check "/products/espresso-dial-in-card" 301 "$STORE/products/espresso-dial-in-card"
           check "/success"                  301 "$STORE/success"
 
+          # Does the place all of that points to actually exist?
+          #
+          # Every check above passes on a `308` carrying the right Location
+          # header. None of them asks whether anything answers at the other
+          # end. On 2026-08-24 nothing did: guides.bbanetwork.org had no DNS
+          # record at all, so the full journey — receipt link, apex, 308,
+          # store — ended in "could not resolve host", and this guard reported
+          # every redirect correct. A guard whose entire purpose is the path a
+          # paying customer walks has to walk the whole path.
+          #
+          # Deliberately not `-f`: the store may legitimately answer 401/403/404
+          # for a made-up token or an unknown path. What is being tested here
+          # is that the HOST is reachable and serving, not what it says.
+          set +e
+          curl -sS -o /dev/null --max-time 20 "$STORE/" 2>/tmp/store-error
+          STORE_RC=$?
+          set -e
+          if [ "$STORE_RC" -ne 0 ]; then
+            STORE_WHY=$(tr -d '\r' < /tmp/store-error | tail -1)
+            printf '  %-42s unreachable (%s)\n' "$STORE" "curl exit $STORE_RC"
+            FAILURES="$FAILURES\n  $STORE does not answer — ${STORE_WHY:-curl exit $STORE_RC}. Every redirect above lands here, so all of them are dead ends however correct their status codes look."
+          else
+            printf '  %-42s reachable\n' "$STORE"
+          fi
+
           # The hub must keep its own endpoints rather than forwarding them to
           # a store that has never heard of them. /licence is here rather than
           # in the redirect list above because the hub now serves the network's

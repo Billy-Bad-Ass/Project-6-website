@@ -12,7 +12,7 @@ in the dashboard, and — read this part — what will break if the order is wro
 | `guides.bbanetwork.org` | The store | Project 2 | Printable reference guides. Its own checkout, its own support address. |
 | `audit.bbanetwork.org` | Website Health Check | Project 1 | The audit service. Project 1 already builds this sales site — see below. |
 | `heartbeat.bbanetwork.org` | Heartbeat | Project 4 | Internal, behind Cloudflare Access. Reserved; this repo does not touch it. |
-| `www.bbanetwork.org` | This hub | Project 6 | Attached to the same Worker rather than redirected. Safe because every page declares `<link rel="canonical">` on the apex regardless of the host it was served from — so the two hosts do not split search authority. |
+| `www.bbanetwork.org` | Nothing yet | — | No DNS record exists. Either attachment works: a Worker custom domain on `bba-network-hub`, or a proxied `CNAME` to the apex plus a redirect rule. Serving it from the hub directly is safe because every page declares `<link rel="canonical">` on the apex regardless of the host it was served from, so the two hosts do not split search authority. |
 
 ### This is a change from Project 4's plan
 
@@ -63,10 +63,63 @@ these are no longer preparations, they are open gaps on a live domain.
 | Step | State |
 | --- | --- |
 | 1. Repoint the Stripe webhook | Done, 2026-08-24. Sandbox account, test mode. |
-| 2. Email Routing for `support@` | **Outstanding.** No mailbox behind the address. |
-| 3. `guides.` points at the store | Done. |
+| 2. Email Routing for `support@` | Enabled on the zone. Routes still to be confirmed — see below. |
+| 3. `guides.` points at the store | **No. There is no DNS record for it.** |
 | 4. Apex attached to this hub | **Done.** |
-| 5. `www.` attached to this hub | Check the deploy log — the job reports it every run. |
+| 5. `www.` attached to this hub | **No. There is no DNS record for it.** |
+
+### What the zone actually contains
+
+Read off the dashboard on 2026-08-24. Eight records, and the absences are the
+interesting part:
+
+| Name | Type | Points at |
+| --- | --- | --- |
+| `bbanetwork.org` | MX ×3, TXT ×2 | Cloudflare Email Routing, SPF, DKIM |
+| `bbanetwork.org` | Worker | `bba-network-hub` |
+| `go.bbanetwork.org` | Worker | `bba-growth-os` |
+| `ops.bbanetwork.org` | Worker | `bba-growth-os` |
+
+No `www`, no `guides`, no `audit`, no `heartbeat`. `audit.` is the only one of
+those that is fine: it is `building` in the register, and the hub renders a
+`building` business as a disabled card rather than a link, which is exactly
+what that status is for.
+
+`go.` and `ops.` belong to `bba-growth-os`, which is not built here. Noted so
+nobody assumes an unfamiliar record is stale and deletes it. Worth knowing that
+this hub also uses a `/go/` *path* for outbound click counting — same word,
+different host, no collision, but do not let the two be confused.
+
+### `guides.` does not exist, and everything points at it
+
+This is the one that matters. `src/redirects.ts` sends every legacy store URL
+to `guides.bbanetwork.org`, and that hostname resolves to nothing. The full
+journey a customer takes — receipt link, apex, `308`, store — ends in "could
+not resolve host". The redirect layer is intact and correct and lands in a
+void.
+
+What makes it survivable is that no account is live and nothing has ever been
+sold, so nobody holds a link that is now broken. It is a punctured insurance
+policy, not an outage. It stops being survivable the moment the first sale
+happens.
+
+The daily redirect guard did not catch this, because it checked the status code
+and the `Location` header and never asked whether anything answered at the far
+end. It now probes the destination host as well.
+
+### `heartbeat.` is marked live and does not resolve
+
+`src/businesses.ts` records `heartbeat` as `status: 'live'`, which by the rule
+at the top of that file is a promise that the host is reachable. It is not: the
+link warden's first scheduled run reported `heartbeat=heartbeat.bbanetwork.org:000000`
+at 09:32 on 2026-08-24, `000` being no connection at all.
+
+**The register has deliberately not been edited.** Rule 2 in `CLAUDE.md` says
+never flip `live` back to `building` to make a failing check pass, because that
+hides an outage instead of reporting one. This is precisely that case. The fix
+is to attach `heartbeat.bbanetwork.org` to the `bba-heartbeat` Worker, which
+exists; the register is already telling the truth about what is supposed to be
+there.
 
 ### 1. Repoint the Stripe webhook — done
 
@@ -116,37 +169,46 @@ not caught up with a fix already merged in Project 2. Verified against Project 2
 directly: it is correct. Noted here because the wrong version of this claim was
 acted on once already.)*
 
-The address being right in code is only half of it. **Mail to it still goes
-nowhere until Email Routing exists** — there is no mailbox at that domain by
-default. On a storefront whose entire delivery mechanism is a signed download
-link, the support address is the only channel a buyer has when something fails,
-so this is worth doing before the first sale rather than after.
+**Email Routing is switched on.** The zone carries Cloudflare's three
+`route*.mx.cloudflare.net` MX records, an SPF `TXT`, and a `cf2024-1._domainkey`
+DKIM record — which only appear once routing is enabled.
 
-Cloudflare Email Routing is free and forwards to an inbox you already have.
+*(This file previously said there was no mailbox behind the address. That was
+written before the DNS was read and it was wrong. What could not be seen from
+DNS, and still has to be confirmed in the dashboard, is the part below: MX
+records mean mail for the domain reaches Cloudflare, not that any particular
+address forwards anywhere.)*
 
-> Cloudflare → `bbanetwork.org` → **Email** → **Email Routing** → Get started.
-> Add a destination address, verify it from that inbox, then create routes:
+What remains is per-address: a route only delivers if it exists **and** its
+destination has been verified from that inbox. An unverified destination
+silently drops mail. On a storefront whose entire delivery mechanism is a signed
+download link, the support address is the only channel a buyer has when
+something fails, so confirm both rows below rather than assuming.
+
+> Cloudflare → `bbanetwork.org` → **Email** → **Email Routing** → Routes.
+> Check a destination address is listed as verified, then that these exist:
 
 | Address | Forwards to | For |
 | --- | --- | --- |
 | `support@bbanetwork.org` | your inbox | Buyers with download problems |
 | `hello@bbanetwork.org` | your inbox | Everything else |
 
-Cloudflare adds the MX and SPF records itself. It only *receives* — sending as
-`support@bbanetwork.org` needs a mail provider, and Gmail's "send as" over SMTP
-is the cheap way to do that later.
+Cloudflare adds the MX and SPF records itself — that part is visibly done. It
+only *receives*: sending as `support@bbanetwork.org` needs a mail provider, and
+Gmail's "send as" over SMTP is the cheap way to do that later.
 
-The hub uses the same address (`src/businesses.ts`), so once routing exists the
-hub and the store agree.
+The hub uses the same address (`src/businesses.ts`), so the hub and the store
+agree on where a buyer should write.
 
-### 3. Point `guides.` at the store, and check it works
+### 3. Point `guides.` at the store — not done
 
-`guides.bbanetwork.org` is attached to the store's Worker
-(`bba-network-store`). This mattered before the apex moved and it still does:
-every redirect in `src/redirects.ts` targets `guides.`, so if that host is ever
-detached, the whole legacy path becomes a redirect to nowhere. The daily
-redirect guard checks the destination, not just the status code, for this
-reason.
+`guides.bbanetwork.org` has no DNS record, so it is attached to nothing. The
+`bba-network-store` Worker exists; the hostname was never bound to it, or was
+unbound during the apex move.
+
+Attach it with the four taps below, on `bba-network-store`. Until then every
+rule in `src/redirects.ts` resolves to a dead host — see "guides. does not
+exist" above for what that does and does not cost today.
 
 ### 4. Attach the apex to this hub
 
@@ -192,10 +254,24 @@ two.
   stranger answering on this hostname used to mean "not yet"; it now means the
   domain has been detached or reassigned, and both agents report it as the
   failure it is.
-- `www.bbanetwork.org` is reported by every deploy, as a notice rather than a
+- `www.bbanetwork.org` is reported by every deploy, as a warning rather than a
   failure. A missing `www` costs the visitors who type it and nobody else,
   which is not worth failing a good deploy over — but it is worth saying out
   loud, because otherwise the way you find out is a customer telling you.
+
+  There are two ways to give it a record, and the deploy's probe follows
+  redirects, so it reports success for either:
+
+  1. **A Worker custom domain** on `bba-network-hub`, the same four taps as any
+     other host. `www` then serves the hub directly.
+  2. **A proxied `CNAME`** `www` → `bbanetwork.org`, plus a redirect rule.
+     Cloudflare's own DNS recommendations panel offers this, and it is the
+     tidier of the two: one host serves, the other forwards, and there is no
+     second copy of the site to reason about.
+
+  The first attempt at option 1 left no record behind, which is worth knowing
+  before repeating it — check the DNS table afterwards rather than trusting the
+  dialog.
 - Run the redirect guard by hand once — Actions → **Agent · Redirect guard** →
   Run workflow — and confirm it passes against the live apex before you walk
   away.
