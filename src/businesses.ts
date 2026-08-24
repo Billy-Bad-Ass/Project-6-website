@@ -82,10 +82,13 @@ export const BUSINESSES: Business[] = [
     id: 'guides',
     host: `guides.${APEX}`,
     name: 'BBA Guides',
-    tagline: 'Printable reference guides that actually fix the problem.',
+    tagline:
+      'Printable reference guides for the hobbies Billy actually cares about \u2014 designed ' +
+      'to solve the annoying little problems that usually send you searching through forums, ' +
+      'videos, and half-finished notes.',
     blurb:
-      'One page, one problem, printed and stuck where the problem happens. No login, no app, ' +
-      'no fifty-minute video. Buy it, print it, put it next to the machine.',
+      'One page, one problem, built around the way the hobby is actually done. Print it, keep ' +
+      'it beside your setup, and get back to making things.',
     status: 'building',
     revenueModel: 'stripe-checkout',
     repo: 'Billy-Bad-Ass/Project-2',
@@ -104,8 +107,10 @@ export const BUSINESSES: Business[] = [
     name: 'Website Health Check',
     tagline: "A plain-English review of what's broken on your website.",
     blurb:
-      'What is broken, what each problem costs you in lost customers, and exactly how to fix ' +
-      'it. Written by a human who looked at your actual site. Delivered within one working day.',
+      'Billy is a trained engineer who builds & uses his own AI tools to inspect websites, ' +
+      'detect issues, and uncover opportunities for improvement. Each review combines ' +
+      'intelligent automation, technical measurements, and experienced human judgment to give ' +
+      'you a clear picture of how your site is performing \u2014 and where it can be made better.',
     status: 'building',
     revenueModel: 'stripe-payment-link',
     repo: 'Billy-Bad-Ass/Project-1',
