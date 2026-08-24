@@ -496,12 +496,13 @@ ${rule()}
         why before the day is out rather than after it.
       </p>
 
-      <h3>What the report is, and is not</h3>
+      <h3>What the report is</h3>
       <p>
-        It is one person&rsquo;s considered reading of your site, backed by measurements where
-        measurements exist. It is not a legal, accessibility, or security certification, and
-        it does not promise a particular outcome in search rankings or sales &mdash; anyone
-        selling you that is guessing.
+        Billy is a trained engineer who builds &amp; uses his own AI tools to inspect websites,
+        detect issues, and uncover opportunities for improvement. Each review combines
+        intelligent automation, technical measurements, and experienced human judgment to give
+        you a clear picture of how your site is performing &mdash; and where it can be made
+        better.
       </p>
 
       <h3>Payment and data</h3>
