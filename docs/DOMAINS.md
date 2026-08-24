@@ -12,7 +12,7 @@ in the dashboard, and — read this part — what will break if the order is wro
 | `guides.bbanetwork.org` | The store | Project 2 | Printable reference guides. Its own checkout, its own support address. |
 | `audit.bbanetwork.org` | Website Health Check | Project 1 | The audit service. Project 1 already builds this sales site — see below. |
 | `heartbeat.bbanetwork.org` | Heartbeat | Project 4 | Internal, behind Cloudflare Access. Reserved; this repo does not touch it. |
-| `www.bbanetwork.org` | redirect to apex | — | Cloudflare bulk redirect, free. Pick one canonical host or split your search authority in half. |
+| `www.bbanetwork.org` | This hub | Project 6 | Attached to the same Worker rather than redirected. Safe because every page declares `<link rel="canonical">` on the apex regardless of the host it was served from — so the two hosts do not split search authority. |
 
 ### This is a change from Project 4's plan
 
@@ -48,18 +48,40 @@ Project 1 builds its own audit sales site (`audit/src/pipeline/build-web.ts`,
 driven by a `STRIPE_PAYMENT_LINK`). `audit.bbanetwork.org` should point at
 **that** Worker. This repo links to it and does not reimplement it.
 
-## Before you move the apex
+## The apex has moved
 
-Do these in order. Skipping the first two costs money.
+`bbanetwork.org` is attached to `bba-network-hub` and serving this repo. The
+deploy's smoke test proved it on 2026-08-24: `/api/health` identifies as
+`bba-network-hub`, and every check now runs against the apex rather than the
+`workers.dev` hostname.
 
-### 1. Repoint the Stripe webhook — do this FIRST
+The list below was written as a running order to do *before* the move. It was
+not followed in that order — the domain was attached first. That is recorded
+rather than tidied away, because it changes what each remaining item now means:
+these are no longer preparations, they are open gaps on a live domain.
 
-The store's webhook endpoint is currently on the apex. Once the apex is this
-hub, `POST /api/stripe/webhook` gets a `308` to `guides.bbanetwork.org` — and
+| Step | State |
+| --- | --- |
+| 1. Repoint the Stripe webhook | **Outstanding.** Test mode only — see below. |
+| 2. Email Routing for `support@` | **Outstanding.** No mailbox behind the address. |
+| 3. `guides.` points at the store | Done. |
+| 4. Apex attached to this hub | **Done.** |
+| 5. `www.` attached to this hub | Check the deploy log — the job reports it every run. |
+
+### 1. Repoint the Stripe webhook
+
+The store's webhook endpoint is on the apex. Now that the apex is this hub,
+`POST /api/stripe/webhook` gets a `308` to `guides.bbanetwork.org` — and
 **Stripe does not follow redirects.** It treats a `3xx` as a failed delivery.
 
 A failed webhook means an order is paid for but never fulfilled: the customer is
 charged and no download link is sent.
+
+What stops that being an emergency today is that **no Stripe account is live**.
+The only enabled endpoint pointing here belongs to the sandbox account, so what
+breaks is test purchases — which is exactly the thing you would use to check the
+store works before the first real sale. Fix it before you trust a test run, and
+certainly before any account goes live.
 
 > Stripe Dashboard → Developers → Webhooks → the endpoint on `bbanetwork.org`
 > → **Update details** → set the URL to
@@ -67,6 +89,11 @@ charged and no download link is sent.
 
 The `308` in `src/redirects.ts` is a safety net for *browser* traffic — download
 links, checkout returns — not for Stripe. It does not remove this step.
+
+*(Unrelated to this repo, found while checking: the main Stripe test account has
+an enabled webhook pointing at a Worker that does not exist. Its deliveries have
+been failing silently. Nobody owns it; it is noted here so it is written down
+somewhere.)*
 
 ### 2. Set up Email Routing, so the support address actually receives
 
@@ -104,12 +131,17 @@ hub and the store agree.
 
 ### 3. Point `guides.` at the store, and check it works
 
-Attach `guides.bbanetwork.org` to the store's Worker (`bba-network-store`) using
-the four taps below, and buy something with a test card before moving the apex.
-The redirects all target `guides.` — if that host is not live, moving the apex
-turns every store URL into a redirect to nowhere.
+`guides.bbanetwork.org` is attached to the store's Worker
+(`bba-network-store`). This mattered before the apex moved and it still does:
+every redirect in `src/redirects.ts` targets `guides.`, so if that host is ever
+detached, the whole legacy path becomes a redirect to nowhere. The daily
+redirect guard checks the destination, not just the status code, for this
+reason.
 
-### 4. Only then, attach the apex to this hub
+### 4. Attach the apex to this hub
+
+Done. The four taps are below, and they are the same four for any host — `www.`
+included.
 
 ## Attaching a domain to a Worker
 
@@ -135,17 +167,25 @@ two.
 
 ## After pointing anything
 
-- Set the `SITE_URL` repository **variable** to `https://bbanetwork.org` — but
-  **only once the apex actually serves this hub.** Until then leave it unset:
-  the deploy smoke test falls back to the Worker's own `workers.dev` hostname,
-  which is the thing that was just deployed. Pointing it at the apex too early
-  makes every successful deploy report failure, because the apex is still
-  serving the store.
+- **You do not need to set `SITE_URL`.** The deploy and both agent probes fall
+  back to `https://bbanetwork.org`, which is now the right answer. The variable
+  remains as an override for one case: pointing the checks somewhere else,
+  such as a `workers.dev` hostname, while the apex is deliberately detached.
 
-  The deploy also reports where the apex currently points, as a notice rather
-  than a failure. It will keep saying "still points elsewhere" until step 4
-  above is done, and that is correct — this workflow has no business forcing
-  the schedule of a move whose first step is repointing a payment webhook.
+  This fallback used to be the Worker's own `workers.dev` URL, because the apex
+  was serving Project 2's store and testing it would have failed every
+  successful deploy. Testing the customer-facing host is the stricter check and
+  the one worth having — an unattached apex is an outage, and the identity
+  check is what distinguishes it from a broken deploy.
+
+  For the same reason, neither daily agent has a `skipped` outcome any more. A
+  stranger answering on this hostname used to mean "not yet"; it now means the
+  domain has been detached or reassigned, and both agents report it as the
+  failure it is.
+- `www.bbanetwork.org` is reported by every deploy, as a notice rather than a
+  failure. A missing `www` costs the visitors who type it and nobody else,
+  which is not worth failing a good deploy over — but it is worth saying out
+  loud, because otherwise the way you find out is a customer telling you.
 - Run the redirect guard by hand once — Actions → **Agent · Redirect guard** →
   Run workflow — and confirm it passes against the live apex before you walk
   away.

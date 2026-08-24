@@ -67,13 +67,16 @@ jobs:
       # Prove the thing that just deployed actually answers, rather than
       # trusting a green deploy step.
       #
-      # The host tested is the WORKER, not the apex. Those are different things
-      # until somebody attaches the custom domain by hand, and conflating them
-      # made this step fail on a deploy that had entirely succeeded: the apex
-      # still serves Project 2's store, so /api/health returned the store's
-      # payload and /api/download returned the store's 403 for a bogus token.
-      # A deploy that worked must not report failure — do that a few times and
-      # nobody reads this job again.
+      # This tests the apex, because the apex is now this Worker. It used to
+      # test the workers.dev hostname instead, and had to: the custom domain
+      # was still attached to Project 2's store, so /api/health returned the
+      # store's payload and /api/download returned the store's 403 for a bogus
+      # token — failing a deploy that had entirely succeeded.
+      #
+      # Testing the customer-facing host is the stricter check and the one
+      # worth having: a Worker that deployed perfectly but is no longer
+      # attached to bbanetwork.org is an outage, and this step should say so.
+      # The identity check below is what tells those two failures apart.
       - name: Smoke-test the deployment
         run: |
           BASE="${SITE_URL:-$FALLBACK_URL}"
@@ -81,7 +84,7 @@ jobs:
 
           echo "→ $BASE/api/health"
           if ! BODY=$(curl -sf --max-time 20 "$BASE/api/health"); then
-            echo "::error::$BASE/api/health did not answer. If SITE_URL is unset, the fallback workers.dev hostname in this workflow may be wrong for this account."
+            echo "::error::$BASE/api/health did not answer. The Worker deployed; the host is not serving it. Check the custom domain is still attached to bba-network-hub — see docs/DOMAINS.md."
             exit 1
           fi
           echo "  $BODY"
@@ -95,12 +98,12 @@ jobs:
           # nothing, which is exactly how this failed the first time — against
           # a Worker that was up and answering correctly.
           if ! echo "$BODY" | grep -q '"service"[[:space:]]*:[[:space:]]*"bba-network-hub"'; then
-            echo "::error title=That host is not this hub::$BASE answered, but with something else. If SITE_URL is the apex, the apex is still attached to another Worker — see docs/DOMAINS.md, 'Attaching a domain to a Worker'. The deploy itself succeeded."
+            echo "::error title=That host is not this hub::$BASE answered, but with something else — the hostname is attached to a different Worker. See docs/DOMAINS.md, 'Attaching a domain to a Worker'. The deploy itself succeeded."
             exit 1
           fi
 
-          # The redirect rules key off the path, not the host, so they are
-          # testable here long before the apex moves.
+          # The rule that pays the rent: this is the exact URL shape sitting in
+          # already-sent receipts.
           echo "→ $BASE/api/download (must redirect to the store, method-preserving)"
           CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE/api/download?token=smoke")
           LOC=$(curl -s -o /dev/null -w '%{redirect_url}' --max-time 20 "$BASE/api/download?token=smoke")
@@ -115,28 +118,36 @@ jobs:
           PCODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE/products/espresso-dial-in-card")
           [ "$PCODE" = "301" ] || { echo "::error::Expected 301 for an indexed product page, got $PCODE."; exit 1; }
 
+          # /licence is a hub page that used to be a 301 to the store. If a
+          # redirect rule ever reclaims it, the terms a customer agreed to at
+          # checkout stop resolving — so it is checked, not assumed.
+          echo "→ $BASE/licence (must be served here, not redirected)"
+          LCODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE/licence")
+          [ "$LCODE" = "200" ] || { echo "::error::Expected 200 for /licence, got $LCODE. The licence and refund terms are not resolving."; exit 1; }
+
           echo "→ $BASE/brand/v1.css (the subdomains link this)"
           curl -sf --max-time 20 -o /dev/null "$BASE/brand/v1.css" \
             || { echo "::error::/brand/v1.css did not serve. guides. and audit. would lose their styling."; exit 1; }
         env:
           SITE_URL: ${{ vars.SITE_URL }}
-          FALLBACK_URL: https://bba-network-hub.bbacentralworkspace.workers.dev
+          FALLBACK_URL: https://bbanetwork.org
 
-      # Where the apex actually points, reported and never enforced.
+      # The apex is attached; www is the half that is easy to forget.
       #
-      # Moving it is a deliberate manual step with prerequisites that cost money
-      # if skipped (the Stripe webhook, first — see docs/DOMAINS.md). This job
-      # has no business forcing that schedule, so it states the fact and stops.
-      - name: Where does the apex point?
+      # Reported and never enforced. A missing www costs the visitors who type
+      # it and nobody else, so it is not worth failing a good deploy over —
+      # but it is worth saying out loud every time, because the only way it
+      # gets noticed otherwise is a customer telling you.
+      - name: Does www serve the hub too?
         if: always()
         run: |
-          BODY=$(curl -sf --max-time 20 https://bbanetwork.org/api/health || echo '')
+          BODY=$(curl -sfL --max-time 20 https://www.bbanetwork.org/api/health || echo '')
           if [ -z "$BODY" ]; then
-            echo "::warning title=Apex did not answer::bbanetwork.org/api/health returned nothing."
+            echo "::warning title=www did not answer::www.bbanetwork.org/api/health returned nothing. Attach www.bbanetwork.org to bba-network-hub in the Cloudflare dashboard — docs/DOMAINS.md has the steps."
           elif echo "$BODY" | grep -q '"service"[[:space:]]*:[[:space:]]*"bba-network-hub"'; then
-            echo "::notice title=Apex is live on the hub::bbanetwork.org is serving bba-network-hub."
+            echo "::notice title=www is live on the hub::www.bbanetwork.org is serving bba-network-hub."
           else
-            echo "::notice title=Apex still points elsewhere::bbanetwork.org is not yet serving this hub — it is still attached to another Worker (the store). This is expected until you attach the custom domain; docs/DOMAINS.md has the order to do it in, and step 1 is repointing the Stripe webhook."
+            echo "::warning title=www points elsewhere::www.bbanetwork.org answered with something other than this hub — it is attached to a different Worker."
           fi
 
       # Report into Project 4's console. `|| true` because losing a log entry

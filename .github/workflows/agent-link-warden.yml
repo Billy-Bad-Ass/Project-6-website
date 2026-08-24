@@ -33,19 +33,25 @@ jobs:
           BASE="${SITE_URL:-$FALLBACK_URL}"
           PROBLEMS=""
 
-          # Identity BEFORE reachability, and the order matters. Until the apex
-          # is attached it serves Project 2's store, which has no /api/stats at
-          # all — so a plain "did /api/stats answer?" check fails on the 404 and
-          # reports the hub as down, opening an issue every morning about
-          # nothing. Ask what is serving first, and say so plainly if it is not
-          # us.
+          # Identity BEFORE reachability, and the order still matters: asking
+          # "did /api/stats answer?" of a host that is serving something else
+          # entirely reports a 404 as a broken register, which is the wrong
+          # diagnosis and sends the agent looking in the wrong file.
+          #
+          # What changed is the verdict, not the order. This used to exit 0 —
+          # the apex genuinely belonged to another Worker, so there was nothing
+          # here to warden. Now that it is attached, a stranger on this
+          # hostname is the outage, and it is reported as one.
           # grep with a whitespace class, not a glob: /api/health is
           # pretty-printed, so the body reads `"service": "..."` with a space.
           HEALTH=$(curl -sf --max-time 20 "$BASE/api/health" || echo '')
           if ! echo "$HEALTH" | grep -q '"service"[[:space:]]*:[[:space:]]*"bba-network-hub"'; then
-            echo "skipped=true" >> "$GITHUB_OUTPUT"
-            echo "problems=" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Nothing to warden yet::$BASE is not serving this hub, so its register is not in play. Expected until the apex is attached — see docs/DOMAINS.md."
+            echo "problems=hub-unreachable" >> "$GITHUB_OUTPUT"
+            if [ -z "$HEALTH" ]; then
+              echo "detail=$BASE did not answer /api/health at all — the hostname resolves to nothing, or the Worker behind it is gone." >> "$GITHUB_OUTPUT"
+            else
+              echo "detail=$BASE answered /api/health with something other than this hub, so the hostname is attached to a different Worker. See docs/DOMAINS.md." >> "$GITHUB_OUTPUT"
+            fi
             exit 0
           fi
 
@@ -72,7 +78,7 @@ jobs:
           echo "detail=$PROBLEMS" >> "$GITHUB_OUTPUT"
         env:
           SITE_URL: ${{ vars.SITE_URL }}
-          FALLBACK_URL: https://bba-network-hub.bbacentralworkspace.workers.dev
+          FALLBACK_URL: https://bbanetwork.org
 
       - name: Investigate and report
         if: steps.probe.outputs.problems != ''
@@ -96,17 +102,17 @@ jobs:
             --allowed-tools Read,Bash,Grep,Glob,WebFetch
         env:
           SITE_URL: ${{ vars.SITE_URL }}
-          FALLBACK_URL: https://bba-network-hub.bbacentralworkspace.workers.dev
+          FALLBACK_URL: https://bbanetwork.org
 
       - name: Report the run
         if: always()
         run: |
           STATUS="ok"
           SUMMARY="All live hosts in the register answered."
-          if [ "${{ steps.probe.outputs.skipped }}" = "true" ]; then
-            STATUS="skipped"
-            SUMMARY="Hub is not serving the probed host yet; nothing to check."
-          elif [ -n "${{ steps.probe.outputs.problems }}" ]; then
+          # There is no longer a `skipped` outcome. It existed for the window
+          # when the apex belonged to another Worker; that window is closed,
+          # and a host that is not this hub is now a failure like any other.
+          if [ -n "${{ steps.probe.outputs.problems }}" ]; then
             STATUS="failed"
             SUMMARY="Unreachable: ${{ steps.probe.outputs.detail }}"
           fi
