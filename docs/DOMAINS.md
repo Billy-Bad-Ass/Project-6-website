@@ -62,38 +62,48 @@ these are no longer preparations, they are open gaps on a live domain.
 
 | Step | State |
 | --- | --- |
-| 1. Repoint the Stripe webhook | **Outstanding.** Test mode only — see below. |
+| 1. Repoint the Stripe webhook | Done, 2026-08-24. Sandbox account, test mode. |
 | 2. Email Routing for `support@` | **Outstanding.** No mailbox behind the address. |
 | 3. `guides.` points at the store | Done. |
 | 4. Apex attached to this hub | **Done.** |
 | 5. `www.` attached to this hub | Check the deploy log — the job reports it every run. |
 
-### 1. Repoint the Stripe webhook
+### 1. Repoint the Stripe webhook — done
 
-The store's webhook endpoint is on the apex. Now that the apex is this hub,
-`POST /api/stripe/webhook` gets a `308` to `guides.bbanetwork.org` — and
-**Stripe does not follow redirects.** It treats a `3xx` as a failed delivery.
+The store's webhook endpoint was on the apex. Once the apex became this hub,
+`POST /api/stripe/webhook` got a `308` to `guides.bbanetwork.org` — and
+**Stripe does not follow redirects.** It treats a `3xx` as a failed delivery,
+which means an order paid for and never fulfilled: the customer is charged and
+no download link is sent.
 
-A failed webhook means an order is paid for but never fulfilled: the customer is
-charged and no download link is sent.
+The endpoint on the sandbox account (`we_1U7bbBJ…`, "BBA Network store —
+digital download delivery") now points at
+`https://guides.bbanetwork.org/api/stripe/webhook`. Its **id is unchanged, so
+its signing secret is unchanged** — Project 2's `STRIPE_WEBHOOK_SECRET` did not
+need rotating. Changing the URL of an endpoint is not the same as replacing it,
+and replacing it would have silently broken signature verification.
 
-What stops that being an emergency today is that **no Stripe account is live**.
-The only enabled endpoint pointing here belongs to the sandbox account, so what
-breaks is test purchases — which is exactly the thing you would use to check the
-store works before the first real sale. Fix it before you trust a test run, and
-certainly before any account goes live.
+This was done from a session working in this repo, which is a deliberate
+exception to rule 5 in `CLAUDE.md` ("never touch Stripe from this repo"),
+made on an explicit instruction. The rule stands: the hub is a signpost, and
+nothing in `src/` talks to Stripe. What was edited was one URL field in the
+Stripe dashboard's data, not code in this repository.
 
-> Stripe Dashboard → Developers → Webhooks → the endpoint on `bbanetwork.org`
-> → **Update details** → set the URL to
-> `https://guides.bbanetwork.org/api/stripe/webhook`
+> For reference, by hand: Stripe Dashboard → Developers → Webhooks → the
+> endpoint → **Update details** → set the URL.
 
-The `308` in `src/redirects.ts` is a safety net for *browser* traffic — download
-links, checkout returns — not for Stripe. It does not remove this step.
+No account is live, so what this protects today is *test* purchases — which is
+exactly what you would use to check the store works before the first real sale.
 
-*(Unrelated to this repo, found while checking: the main Stripe test account has
-an enabled webhook pointing at a Worker that does not exist. Its deliveries have
-been failing silently. Nobody owns it; it is noted here so it is written down
-somewhere.)*
+The `308` in `src/redirects.ts` stays. It is a safety net for *browser* traffic
+— download links, checkout returns — and it was never a substitute for this.
+
+*(Unrelated to this repo, found while checking: the main account's test mode has
+an enabled webhook, "Northline storefront", pointing at
+`northline-storefront.bbacentralworkspace.workers.dev` — a Worker that does not
+exist. Its deliveries have been failing silently since before any of this.
+Nobody owns it and it was left alone; it is written down here so it is written
+down somewhere.)*
 
 ### 2. Set up Email Routing, so the support address actually receives
 
