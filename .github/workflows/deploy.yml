@@ -135,19 +135,52 @@ jobs:
       # The apex is attached; www is the half that is easy to forget.
       #
       # Reported and never enforced. A missing www costs the visitors who type
-      # it and nobody else, so it is not worth failing a good deploy over —
-      # but it is worth saying out loud every time, because the only way it
-      # gets noticed otherwise is a customer telling you.
+      # it and nobody else, so it is not worth failing a good deploy over.
+      #
+      # It does have to say WHY, though. The first version of this step ran
+      # `curl -sfL` and reported "returned nothing", which is true of a
+      # hostname that does not resolve, one whose certificate is not issued
+      # yet, and one that resolves fine and answers 522 — three faults with
+      # three different fixes. `-f` turns an HTTP error into an empty string
+      # and `-s` hides the reason, so the check could not tell them apart, and
+      # someone who had correctly attached the domain was told to attach it
+      # again. Separate the three: connection failures come back as a non-zero
+      # curl exit with a message, HTTP errors come back as a status code.
       - name: Does www serve the hub too?
         if: always()
         run: |
-          BODY=$(curl -sfL --max-time 20 https://www.bbanetwork.org/api/health || echo '')
-          if [ -z "$BODY" ]; then
-            echo "::warning title=www did not answer::www.bbanetwork.org/api/health returned nothing. Attach www.bbanetwork.org to bba-network-hub in the Cloudflare dashboard — docs/DOMAINS.md has the steps."
-          elif echo "$BODY" | grep -q '"service"[[:space:]]*:[[:space:]]*"bba-network-hub"'; then
+          # Not `-f`: an HTTP error status is a different diagnosis from a
+          # failed connection, and this step exists to tell them apart.
+          set +e
+          CODE=$(curl -sS -L --max-time 20 \
+                   -o /tmp/www-body -w '%{http_code}' \
+                   https://www.bbanetwork.org/api/health 2>/tmp/www-error)
+          RC=$?
+          set -e
+
+          # Resolution, reported whatever happens. "No addresses" here means
+          # the DNS record was never created, which is a different problem
+          # from a record that exists and points at the wrong place.
+          ADDR=$(getent ahostsv4 www.bbanetwork.org 2>/dev/null | awk '{print $1}' | sort -u | paste -sd' ' -)
+          echo "www.bbanetwork.org resolves to: ${ADDR:-<no addresses>}"
+
+          if [ "$RC" -ne 0 ]; then
+            REASON=$(tr -d '\r' < /tmp/www-error | tail -1)
+            echo "::warning title=www did not connect::curl exit $RC — ${REASON:-no detail}. DNS: ${ADDR:-none}. A name that does not resolve means no record was created; a TLS error usually means the certificate is still being issued, which resolves itself within minutes."
+            exit 0
+          fi
+
+          if [ "$CODE" != "200" ]; then
+            echo "::warning title=www answered HTTP $CODE::www.bbanetwork.org connected and returned $CODE rather than 200. It resolves (${ADDR:-unknown}), so the DNS record exists — the hostname is reaching Cloudflare but not this Worker."
+            head -c 300 /tmp/www-body || true
+            exit 0
+          fi
+
+          if grep -q '"service"[[:space:]]*:[[:space:]]*"bba-network-hub"' /tmp/www-body; then
             echo "::notice title=www is live on the hub::www.bbanetwork.org is serving bba-network-hub."
           else
-            echo "::warning title=www points elsewhere::www.bbanetwork.org answered with something other than this hub — it is attached to a different Worker."
+            echo "::warning title=www points elsewhere::www.bbanetwork.org answered 200 with something other than this hub — it is attached to a different Worker."
+            head -c 300 /tmp/www-body || true
           fi
 
       # Report into Project 4's console. `|| true` because losing a log entry
