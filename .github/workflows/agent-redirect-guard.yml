@@ -99,11 +99,14 @@ jobs:
           #
           # Every check above passes on a `308` carrying the right Location
           # header. None of them asks whether anything answers at the other
-          # end. On 2026-08-24 nothing did: guides.bbanetwork.org had no DNS
-          # record at all, so the full journey — receipt link, apex, 308,
-          # store — ended in "could not resolve host", and this guard reported
-          # every redirect correct. A guard whose entire purpose is the path a
-          # paying customer walks has to walk the whole path.
+          # end, so this guard would report a perfect score while every
+          # customer landed on a dead host.
+          #
+          # No such outage has happened. This check was added on a false alarm
+          # — a `guides` row missing from the DNS records table was read as the
+          # host being gone, when a probe showed it answering fine. The alarm
+          # was wrong; the gap it exposed was not. A guard whose entire purpose
+          # is the path a paying customer walks has to walk the whole path.
           #
           # Deliberately not `-f`: the store may legitimately answer 401/403/404
           # for a made-up token or an unknown path. What is being tested here
