@@ -5,7 +5,7 @@ more than that. This is the boundary and the contract.
 
 ## Project 4 owns orchestration. This repo reports to it.
 
-`Project-4/docs/AGENTS.md` sets the split, and it is worth quoting because it is
+`dashboard-4/docs/AGENTS.md` sets the split, and it is worth quoting because it is
 the reason this repo has no cron Worker and no agent-run table:
 
 > **Project agents** — "These run from their **own** repositories. This
@@ -90,7 +90,7 @@ gone.
 
 ### Project 4's side
 
-`project-6` is registered in `Project-4/config/portfolio.ts` (on its
+`project-6` is registered in `dashboard-4/config/portfolio.ts` (on its
 `claude/audit-business` branch, PR #9), with `revenueModel: 'none'` — a visitor
 who buys an audit is project-1's revenue, and counting it here too would double
 it. Runs posted with `"project_slug":"project-6"` attach to a project page once

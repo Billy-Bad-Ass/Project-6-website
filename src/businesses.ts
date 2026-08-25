@@ -91,7 +91,7 @@ export const BUSINESSES: Business[] = [
       'it beside your setup, and get back to making things.',
     status: 'building',
     revenueModel: 'stripe-checkout',
-    repo: 'Billy-Bad-Ass/Project-2',
+    repo: 'Billy-Bad-Ass/network-store-2',
     portfolioSlug: 'project-2',
     priceHint: 'From a few pounds',
     highlights: [
@@ -113,7 +113,7 @@ export const BUSINESSES: Business[] = [
       'you a clear picture of how your site is performing \u2014 and where it can be made better.',
     status: 'building',
     revenueModel: 'stripe-payment-link',
-    repo: 'Billy-Bad-Ass/Project-1',
+    repo: 'Billy-Bad-Ass/sitecheck-1',
     portfolioSlug: 'project-1',
     priceHint: '$100 one-off',
     highlights: [
@@ -133,7 +133,7 @@ export const BUSINESSES: Business[] = [
       'agent fleet did about any of it. Behind Cloudflare Access.',
     status: 'live',
     revenueModel: 'internal',
-    repo: 'Billy-Bad-Ass/Project-4',
+    repo: 'Billy-Bad-Ass/dashboard-4',
     portfolioSlug: 'project-4',
     highlights: [],
     unlisted: true,

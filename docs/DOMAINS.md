@@ -16,7 +16,7 @@ in the dashboard, and — read this part — what will break if the order is wro
 
 ### This is a change from Project 4's plan
 
-`Project-4/docs/DOMAINS.md` puts **the store** at the apex, and argues it well:
+`dashboard-4/docs/DOMAINS.md` puts **the store** at the apex, and argues it well:
 the brand name at the apex is a trust signal, and a bare domain is what people
 type. That argument is real, and moving the store off the apex is the one part
 of this design with a genuine cost.
