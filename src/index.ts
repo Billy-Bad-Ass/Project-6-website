@@ -19,7 +19,7 @@ import { legacyRedirect } from './redirects';
 import { renderHome, renderAbout, renderLicence, renderNotFound, renderSitemap } from './render';
 import { BUSINESSES, PUBLIC_BUSINESSES, businessById, destination, APEX } from './businesses';
 import { BRAND_CSS } from './styles';
-import { apexIdentity, linkWarden, redirectGuard, type CheckResult } from './checks';
+import { linkWarden, type CheckResult } from './checks';
 import { reportRun, type ReportEnv } from './report';
 
 export interface Env extends ReportEnv {
@@ -136,22 +136,30 @@ async function readClicks(env: Env): Promise<Record<string, number | null>> {
 /**
  * Which check each cron expression runs.
  *
- * Two schedules rather than one, at the times they ran as GitHub Actions.
- * Staggered on purpose: they probe overlapping hosts, and a single failing
- * host producing two separate findings twenty minutes apart is easier to read
- * than one combined run that half-failed.
+ * One, not two, since 2026-08-26. `redirect-guard` moved out to
+ * .github/workflows/agent-redirect-guard.yml and scripts/redirect-guard.ts,
+ * and the reason is a rule worth stating rather than a preference:
+ *
+ *   **A check whose subject is this repo's own hostnames cannot run inside
+ *   the Worker that serves them.**
+ *
+ * `redirect-guard` probes `https://bbanetwork.org/...` nine times. From a
+ * Worker that is itself what answers on that hostname, Cloudflare replies
+ * `522` to every one, so the check failed every day from 2026-08-24 — and
+ * nothing reported, so nobody saw it. It was proved on 2026-08-26 by two
+ * requests one second apart: a GitHub runner got `200` from the apex while
+ * the Worker's own probes got `522`.
+ *
+ * `link-warden` stays. Its subject is other people's hostnames — the
+ * businesses the register calls `live` — which a Worker can reach perfectly
+ * well.
  */
-type CheckName = 'link-warden' | 'redirect-guard';
+type CheckName = 'link-warden';
 
 const SCHEDULE: Record<string, CheckName> = {
   '20 7 * * *': 'link-warden',
-  '40 7 * * *': 'redirect-guard',
 };
 
-/** Both checks, behind one name, whatever fired them. */
-async function runCheck(which: CheckName): Promise<CheckResult> {
-  return which === 'link-warden' ? linkWarden(fetch) : redirectGuard(fetch, `https://${APEX}`);
-}
 
 /**
  * Run one check, log what it found, and report it. The whole of a scheduled
@@ -168,18 +176,25 @@ async function runCheck(which: CheckName): Promise<CheckResult> {
  * being rewritten to avoid.
  */
 async function runAndReport(which: CheckName, env: Env): Promise<string> {
-  const result = await runCheck(which);
+  const result: CheckResult = await linkWarden(fetch);
 
   for (const line of result.log) console.log(`  ${line}`);
 
-  // Carried on every run, pass or fail: what is answering on the apex is
-  // worth having in the log even on a good day, and it is the one thing
-  // this Worker cannot assert about itself. See apexIdentity.
-  const apex = await apexIdentity(fetch);
-
+  // `apexIdentity` used to be appended here, and it is not any more.
+  //
+  // From inside this Worker it answered "apex answered 522" on every single
+  // run — the self-subrequest again — so a passing check reported itself as
+  // "All checks passed — apex answered 522." A sentence that reads like an
+  // outage on a run that found nothing wrong is worse than no sentence, and
+  // it is the same failure this whole layer keeps being rewritten to avoid:
+  // something that is not evidence being presented as though it were.
+  //
+  // The question is still worth asking, so redirect-guard asks it — from a
+  // runner, where an answer from the apex is evidence about DNS rather than
+  // about the process doing the asking.
   const summary = result.ok
-    ? `All checks passed — ${apex}.`
-    : `${result.problems.join('; ')} — ${apex}.`;
+    ? 'All checks passed.'
+    : `${result.problems.join('; ')}.`;
 
   console.log(`${which}: ${result.ok ? 'ok' : 'FAILED'} — ${summary}`);
 
@@ -212,7 +227,7 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
 
     /**
-     * Run one check now, instead of waiting for 07:20 or 07:40 UTC.
+     * Run the check now, instead of waiting for 07:20 UTC.
      *
      * There is no way to make a Cloudflare cron fire on demand, so a change to
      * the reporting path — a new service token, a rotated DASHBOARD_TOKEN —
@@ -240,8 +255,21 @@ export default {
       if (!env.DASHBOARD_TOKEN || offered !== env.DASHBOARD_TOKEN) {
         return html(renderNotFound(), 404);
       }
-      if (which !== 'link-warden' && which !== 'redirect-guard') {
-        return new Response(`No check called "${which}". Try link-warden or redirect-guard.\n`, {
+      // Named, not silently absent. Someone reaching for it here — this
+      // endpoint ran it until 2026-08-26 — needs to be told where it went and
+      // why, not handed a 404 that reads like a typo.
+      if (which === 'redirect-guard') {
+        return new Response(
+          'redirect-guard does not run here. It probes https://bbanetwork.org, which is ' +
+            'this Worker, and Cloudflare answers 522 to a Worker subrequest to its own ' +
+            'route — so every probe failed and the check reported failed every day from ' +
+            '2026-08-24. It runs from a GitHub runner now: Actions -> "Agent · Redirect ' +
+            'guard" -> Run workflow, or scripts/redirect-guard.ts locally.\n',
+          { status: 409, headers: { 'content-type': 'text/plain; charset=utf-8' } },
+        );
+      }
+      if (which !== 'link-warden') {
+        return new Response(`No check called "${which}". Try link-warden.\n`, {
           status: 404,
           headers: { 'content-type': 'text/plain; charset=utf-8' },
         });

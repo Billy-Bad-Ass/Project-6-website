@@ -14,14 +14,24 @@
   // hold that permission — adding one here turns every deploy into a failure.
   // The apex is attached in the Cloudflare dashboard instead, once.
 
-  // The two scheduled checks, moved here from GitHub Actions on 2026-08-24
-  // when the deploy moved to Workers Builds. Same expressions, same times, in
-  // UTC as they always were. src/checks.ts says what each one covers; the
-  // mapping from expression to check is in src/index.ts, and an expression
-  // added here without a matching entry there logs that it ran nothing rather
-  // than silently doing nothing.
+  // One scheduled check, not two, since 2026-08-26.
+  //
+  // Both moved here from GitHub Actions on 2026-08-24 when the deploy moved to
+  // Workers Builds. `redirect-guard` has gone back, because it probes
+  // https://bbanetwork.org — the hostname this Worker serves — and Cloudflare
+  // answers 522 to a Worker's subrequest to its own route. It failed every one
+  // of its nine probes every day and nothing reported it. It now runs from a
+  // GitHub runner: .github/workflows/agent-redirect-guard.yml, still at 07:40
+  // UTC.
+  //
+  // `link-warden` stays because its subject is other people's hostnames, which
+  // a Worker reaches perfectly well.
+  //
+  // src/checks.ts says what the check covers; the mapping from expression to
+  // check is in src/index.ts, and an expression added here without a matching
+  // entry there logs that it ran nothing rather than silently doing nothing.
   "triggers": {
-    "crons": ["20 7 * * *", "40 7 * * *"]
+    "crons": ["20 7 * * *"]
   },
 
   "observability": { "enabled": true },

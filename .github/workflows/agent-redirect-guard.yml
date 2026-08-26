@@ -1,0 +1,101 @@
+name: Agent · Redirect guard
+
+# The legacy apex paths that carry paying customers to their downloads.
+#
+# This ran as a GitHub Action until 2026-08-24, moved to a Cloudflare Cron
+# Trigger on bba-network-hub, and has come back. The move was reasonable and
+# the result was not: the check probes https://bbanetwork.org nine times, and
+# from inside the Worker that serves that hostname Cloudflare answers 522 to
+# every one. It reported `failed` every single day, and no run in this
+# repository reported anything at all until 2026-08-26, so nobody saw.
+#
+# Proved rather than assumed, on 2026-08-26: a GitHub runner got 200 from the
+# apex one second before the Worker's own probes got 522.
+#
+# The rule that falls out of it, and the reason link-warden did not move back:
+#
+#   A check whose subject is this repo's own hostnames cannot run inside the
+#   Worker that serves them.
+#
+# 07:40 UTC — 03:40 ET — the same time it has always run. Cron is UTC because
+# GitHub Actions accepts nothing else; the reading in Eastern is here so nobody
+# has to subtract.
+
+on:
+  schedule:
+    - cron: '40 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-redirect-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # tsx rather than a build step: the point is to run src/checks.ts itself,
+      # unchanged and unbundled. A verification path that runs different code
+      # from the thing it verifies proves nothing about the thing it verifies.
+      #
+      # The script reports its own run through src/report.ts — the same module
+      # the Worker uses — so there is no second implementation of reporting
+      # here either. It exits 1 when the check fails, after reporting.
+      - name: Probe the apex from outside it
+        id: guard
+        run: |
+          set -o pipefail
+          npx --yes tsx@4 scripts/redirect-guard.ts 2>&1 | tee /tmp/guard.log
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+
+      # The script reports whether it passes or fails, so the only run that
+      # goes unreported is one where the script itself died — a bad import, a
+      # missing dependency, a runner that fell over. That is exactly the case
+      # where the console would otherwise show this agent quietly going silent,
+      # which is the failure this repository spent 2026-08-26 removing.
+      #
+      # It fires only when nothing in the log says reporting was attempted, so
+      # a normal failing check is never reported twice.
+      - name: Say so if the script died before it could report
+        if: always()
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
+          CID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CSEC: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set +e
+          if grep -q 'redirect-guard: \(not \)\?reported' /tmp/guard.log 2>/dev/null; then
+            echo "The script reported its own run. Nothing to do here."
+            exit 0
+          fi
+
+          if [ -z "$DASHBOARD_URL" ]; then
+            echo "::warning title=Nothing reported::The check script did not get as far as reporting, and DASHBOARD_URL is not set here either, so this run was recorded nowhere. The console will show redirect-guard going silent."
+            exit 0
+          fi
+
+          echo "::warning title=Script died before reporting::Posting a failed run so the console does not show this agent going quiet."
+          CODE=$(curl -s -o /tmp/out -w '%{http_code}' --max-time 20 \
+            -X POST "${DASHBOARD_URL%/}/api/agent-runs" \
+            -H 'content-type: application/json' \
+            -H "authorization: Bearer $DASHBOARD_TOKEN" \
+            -H "CF-Access-Client-Id: $CID" \
+            -H "CF-Access-Client-Secret: $CSEC" \
+            --data "{\"agent\":\"redirect-guard\",\"project_slug\":\"project-6\",\"trigger\":\"cron\",\"status\":\"failed\",\"summary\":\"The check did not run: scripts/redirect-guard.ts failed before it could report. Nothing is known about the apex paths this run.\",\"artifact_url\":\"$RUN_URL\"}")
+          echo "POST /api/agent-runs -> $CODE"
+          head -c 300 /tmp/out
+          exit 0

@@ -73,12 +73,33 @@ describe('once past the lock', () => {
   });
 
   it('runs the check and answers with what the console said', async () => {
-    // Every outbound call answers 200: the checks' fetches and the report POST
+    // Every outbound call answers 200: the check's fetches and the report POST
     // alike. What is asserted is the shape of the reply, not the verdict.
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 200 })));
-    const response = await call(post('/__run/redirect-guard', 'the-real-token'));
+    const response = await call(post('/__run/link-warden', 'the-real-token'));
     expect(response.status).toBe(200);
-    expect(await response.text()).toMatch(/^redirect-guard: reported \(200\)/);
+    expect(await response.text()).toMatch(/^link-warden: reported \(200\)/);
+    vi.unstubAllGlobals();
+  });
+
+  it('refuses redirect-guard here, and says where it went', async () => {
+    // It ran here until 2026-08-26, and running it here is precisely the bug:
+    // it probes the hostname this Worker serves, so every probe came back 522
+    // and the check reported `failed` every day. A 404 would read like a typo.
+    const response = await call(post('/__run/redirect-guard', 'the-real-token'));
+    expect(response.status).toBe(409);
+    const body = await response.text();
+    expect(body).toContain('522');
+    expect(body).toContain('Redirect guard');
+  });
+
+  it('never runs a check just because the reply mentions one', async () => {
+    // The refusal above names link-warden nowhere. A caller that asked for
+    // redirect-guard must get no run at all, not a substitute.
+    const fetcher = vi.fn(async () => new Response('', { status: 200 }));
+    vi.stubGlobal('fetch', fetcher);
+    await call(post('/__run/redirect-guard', 'the-real-token'));
+    expect(fetcher).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 });
