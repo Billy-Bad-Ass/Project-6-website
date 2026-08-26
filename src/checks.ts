@@ -1,24 +1,41 @@
 /**
- * The two scheduled checks, as Worker code.
- *
- * These ran as GitHub Actions until 2026-08-24. They moved here because the
- * deploy moved to Cloudflare Workers Builds, and leaving two cron workflows
- * behind in a repository that otherwise no longer uses Actions is how you end
- * up with checks nobody remembers exist.
- *
- * What they check has not changed, and neither has the reason:
+ * The two scheduled checks. One runs in the Worker, one cannot.
  *
  *   redirect-guard  — the paths a paying customer walks. Someone holding an
  *                     emailed download link must still reach their file.
+ *                     Runs from a GitHub runner:
+ *                     .github/workflows/agent-redirect-guard.yml.
  *   link-warden     — that every business the register calls `live` actually
  *                     answers. `live` is a promise; this is what keeps it one.
+ *                     Runs as a Cloudflare cron on this Worker.
  *
- * The one real loss in moving is worth stating. A GitHub runner is genuinely
- * outside the network, so it could tell that `bbanetwork.org` had been
- * detached from this Worker. A subrequest from inside the Worker cannot be
- * trusted to prove that: if the hostname still points here, the request comes
- * straight back to this same script. So `apexServesThisWorker` is reported as
- * a fact rather than asserted as a pass — see the note on it below.
+ * Both ran as GitHub Actions until 2026-08-24, when they moved here with the
+ * deploy. `redirect-guard` went back on 2026-08-26, and the reason is a rule
+ * rather than a preference:
+ *
+ *   **A check whose subject is this repo's own hostnames cannot run inside
+ *   the Worker that serves them.**
+ *
+ * The note under `apexIdentity` below saw half of this coming and drew the
+ * wrong conclusion from it. It says a subrequest to the apex cannot prove the
+ * apex is still attached, "if the hostname still points here, the request
+ * comes straight back to this same script" — so the result is recorded as a
+ * fact rather than a pass. Two things turned out to be wrong with that.
+ *
+ * The request does not come back to this script. Cloudflare answers a Worker's
+ * subrequest to its own route with `522`, so `apexIdentity` returned "apex
+ * answered 522" on every run — a sentence that reads like an outage appended
+ * to checks that had found nothing wrong.
+ *
+ * And the mitigation was applied to the wrong thing. `apexIdentity` is one
+ * informational line. `redirectGuard` probes that same hostname for all nine
+ * of its assertions, and those are asserted as passes. So the check that
+ * actually depended on reaching the apex was left asserting failures it could
+ * not have avoided, every day, from 2026-08-24 until the reporting gap closed
+ * on 2026-08-26 and made it visible.
+ *
+ * `linkWarden` is unaffected and stays on the Worker: its subject is other
+ * people's hostnames, which a Worker reaches perfectly well.
  */
 
 import { APEX, BUSINESSES } from './businesses';
@@ -153,9 +170,14 @@ export async function linkWarden(fetcher: Fetcher): Promise<CheckResult> {
  *
  * When this check ran on a GitHub runner it could prove the custom domain was
  * still attached, because the runner was genuinely somewhere else. From inside
- * the Worker that proof is not available: if the hostname still points here,
- * the subrequest is served by this same script, and "I answered myself" is not
- * evidence of anything about DNS.
+ * the Worker that proof is not available — and not for the reason first
+ * written here. The subrequest is not served by this same script: Cloudflare
+ * answers a Worker's request to its own route with `522`, so from in there
+ * this function reports an outage that is not happening.
+ *
+ * So it is only ever called from scripts/redirect-guard.ts, on a runner. The
+ * Worker's own runs no longer append it at all — see the note in
+ * src/index.ts.
  *
  * It is still worth asking. If the apex has been reassigned to a different
  * Worker, this returns that Worker's answer, which is a real and useful

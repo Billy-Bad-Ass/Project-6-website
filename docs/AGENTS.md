@@ -21,24 +21,42 @@ knowledge of the hub, and posts the outcome to Project 4's console.
 something needs to run on a schedule against the whole portfolio, it belongs in
 Project 4. That is the line, and it is unchanged.
 
-What did change, on 2026-08-24: those two checks now run as **Cloudflare Cron
-Triggers on this Worker** rather than as GitHub Actions. The deploy moved to
-Cloudflare Workers Builds, and leaving two cron workflows behind in a repository
-that otherwise no longer uses Actions is how you end up with checks nobody
+What changed on 2026-08-24: both checks moved from GitHub Actions to
+**Cloudflare Cron Triggers on this Worker**, because the deploy moved to
+Cloudflare Workers Builds and leaving two cron workflows behind in a repository
+that otherwise no longer used Actions is how you end up with checks nobody
 remembers exist.
 
 An earlier version of this file, and rule 4 in `CLAUDE.md`, said "do not add a
 Worker cron to this repo" without qualification. That was written to stop two
 systems competing over portfolio orchestration, not to stop this repo watching
-its own two hostnames — but it did say what it said, so the change is recorded
+its own two hostnames — but it did say what it said, so the change was recorded
 here rather than quietly made.
+
+**What changed back on 2026-08-26, and the rule it produced.** `redirect-guard`
+runs from a GitHub runner again. Not a reversal of the reasoning above — a
+constraint that reasoning did not know about:
+
+> A check whose subject is this repo's own hostnames cannot run inside the
+> Worker that serves them.
+
+`redirect-guard` probes `https://bbanetwork.org` nine times. Cloudflare answers
+a Worker's subrequest to its own route with `522`, so every probe failed and
+the check reported `failed` every day from 2026-08-24 — and until 2026-08-26 no
+run in this repository reported anything at all, so nobody saw it. Proved
+rather than assumed: a GitHub runner got `200` from the apex one second before
+the Worker's own probes got `522`.
+
+`link-warden` stays on the Worker. Its subject is *other people's* hostnames —
+the businesses the register calls `live` — which a Worker reaches perfectly
+well. That is the whole of the difference between the two.
 
 ## The agents that run here
 
 | Agent | Owns | Runs | Where |
 | --- | --- | --- | --- |
-| `link-warden` | Every business the register calls `live` is actually reachable. | Daily 07:20 UTC | Worker cron |
-| `redirect-guard` | The legacy apex paths that carry paying customers to their downloads. | Daily 07:40 UTC | Worker cron |
+| `link-warden` | Every business the register calls `live` is actually reachable. | Daily 07:20 UTC (03:20 ET) | Worker cron |
+| `redirect-guard` | The legacy apex paths that carry paying customers to their downloads. | Daily 07:40 UTC (03:40 ET) | Actions — it must probe the apex from outside it |
 | deploy | Builds, tests and deploys. | On push to `main` | Workers Builds |
 | mention | Routes an `@claude` mention on an issue or PR here. | On mention | Actions |
 
@@ -49,10 +67,17 @@ it ran nothing, rather than silently doing nothing.
 
 ### Running one now
 
-Cloudflare has no way to make a cron fire on demand, so until 2026-08-26 a
-change to the reporting path — a new service token, a rotated
-`DASHBOARD_TOKEN` — could not be verified until the next morning. "It should
-work tomorrow" is not a verified fix.
+**`redirect-guard`** — Actions → *Agent · Redirect guard* → Run workflow. Or
+locally, with the same four values in the environment:
+
+```bash
+npx --yes tsx@4 scripts/redirect-guard.ts
+```
+
+**`link-warden`** — Cloudflare has no way to make a cron fire on demand, so
+until 2026-08-26 a change to the reporting path — a new service token, a
+rotated `DASHBOARD_TOKEN` — could not be verified until the next morning. "It
+should work tomorrow" is not a verified fix.
 
 ```bash
 curl -sS -X POST https://bbanetwork.org/__run/link-warden \
@@ -69,6 +94,10 @@ only, so no crawler, prefetch or pasted link reaches it. A missing token, a
 wrong token and an unconfigured `DASHBOARD_TOKEN` all get the ordinary 404
 page, not a `401` — a `401` would confirm both that the path is real and that
 a token opens it. `test/run-endpoint.test.ts` pins each of those.
+
+`/__run/redirect-guard` answers `409` and says where the check went. It ran
+there until 2026-08-26, and running it there is precisely the bug — a `404`
+would read like a typo.
 
 Both are **deterministic probes**: they fetch, they compare, they report. No
 model is involved on either path, which is why they cost nothing to run daily
@@ -142,24 +171,34 @@ Project 4's guardrails apply, plus two specific to this repo:
 
 ## Secrets and variables
 
-The scheduled checks read these as **Worker secrets**, not GitHub secrets.
-Set them on the Worker — Cloudflare → Compute → `bba-network-hub` → Settings →
-Variables and Secrets, or `npx wrangler secret put NAME`:
+The same four values, in two places, because the two checks run in two places.
 
-| Worker secret | Used by | Required? |
+| | Used by | Required? |
 | --- | --- | --- |
-| `DASHBOARD_URL` | reporting a scheduled run | No — unset means the run is not reported, and says so |
-| `DASHBOARD_TOKEN` | reporting a scheduled run | No, but a set dashboard will answer `401` without it |
+| `DASHBOARD_URL` | reporting a run | No — unset means the run is not reported, and says so |
+| `DASHBOARD_TOKEN` | reporting a run | No, but a set dashboard will answer `401` without it |
 | `CF_ACCESS_CLIENT_ID` | reporting through Cloudflare Access | Yes, while the dashboard is behind Access |
 | `CF_ACCESS_CLIENT_SECRET` | reporting through Cloudflare Access | Yes, while the dashboard is behind Access |
+
+**As Worker secrets**, for `link-warden` and for `POST /__run/`, which also
+checks `DASHBOARD_TOKEN` as its lock. Cloudflare → Compute → `bba-network-hub`
+→ Settings → Variables and Secrets, or `npx wrangler secret put NAME`.
+
+**As repository secrets**, for `redirect-guard`, which runs on a GitHub runner.
+Settings → Secrets and variables → Actions.
+
+Do not set either by hand. dashboard-4's *Ops · Give the other repos the
+credentials they report with* writes both, from the one repository where these
+values exist. `DASHBOARD_TOKEN` has to match the `bba-heartbeat` Worker
+exactly, and every copy is write-only, so a value typed in three times cannot
+be compared — only replaced together.
 
 Every one is optional in the sense that the checks run without them. What
 changes is whether anybody is told.
 
-Repository **secrets** are no longer needed for deploying. Workers Builds holds
-the credentials on Cloudflare's side, so `CLOUDFLARE_API_TOKEN` and
-`CLOUDFLARE_ACCOUNT_ID` can be deleted from this repository — nothing reads
-them any more.
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are not needed for
+deploying — Workers Builds holds those on Cloudflare's side — and can be
+deleted from this repository.
 
 What is left on GitHub Actions is `ci.yml`, which runs the test suite on every
 pull request, and the `@claude` mention router. Neither needs a Cloudflare
@@ -248,19 +287,18 @@ request on. Set one up once:
    made. Leave the existing "Only me" policy alone: that is what lets *you* in
    from a browser, and Service Auth is what lets the runner in. An application
    needs both.
-3. Put the pair on the Worker as `CF_ACCESS_CLIENT_ID` and
-   `CF_ACCESS_CLIENT_SECRET` — not in this repository's Actions secrets, since
-   the checks run as Worker crons and never touch a runner.
+3. Put the pair in both places named under **Secrets and variables** above —
+   on the Worker for `link-warden`, and in this repository's Actions secrets
+   for `redirect-guard`.
 
-**Done, 2026-08-26.** All four Worker secrets were written by dashboard-4's
-*Ops · Give the other repos the credentials they report with*, which fans them
-out from the one repository where they exist. Re-run that job rather than
-setting them by hand: `DASHBOARD_TOKEN` has to match the value on the
-`bba-heartbeat` Worker exactly, and both sides are write-only, so a value typed
-in twice cannot be checked — only replaced together.
+**Done, 2026-08-26.** Both sets were written by dashboard-4's *Ops · Give the
+other repos the credentials they report with*, which fans them out from the one
+repository where they exist. Re-run that job rather than setting them by hand,
+for the reason given above.
 
-The workflows send both headers only when both are set, so nothing breaks if
-the dashboard is ever moved out from behind Access.
+Both `src/report.ts` and `scripts/redirect-guard.ts` send the two headers only
+when both are set, so nothing breaks if the dashboard is ever moved out from
+behind Access.
 
 ### Why the reporting steps warn
 
