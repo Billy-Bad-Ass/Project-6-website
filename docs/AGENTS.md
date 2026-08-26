@@ -47,6 +47,29 @@ expression to check is in `src/index.ts`, and the expressions themselves are in
 `wrangler.jsonc`. An expression added in one place without the other logs that
 it ran nothing, rather than silently doing nothing.
 
+### Running one now
+
+Cloudflare has no way to make a cron fire on demand, so until 2026-08-26 a
+change to the reporting path — a new service token, a rotated
+`DASHBOARD_TOKEN` — could not be verified until the next morning. "It should
+work tomorrow" is not a verified fix.
+
+```bash
+curl -sS -X POST https://bbanetwork.org/__run/link-warden \
+  -H "authorization: Bearer $DASHBOARD_TOKEN"
+```
+
+It answers with `reportRun`'s own sentence — `link-warden: reported (201)`, or
+the specific reason it was not — and it runs the same `runAndReport` the cron
+does. A verification path that runs different code from the thing it verifies
+proves nothing about the thing it verifies.
+
+The lock is `DASHBOARD_TOKEN`, the secret this Worker already holds. `POST`
+only, so no crawler, prefetch or pasted link reaches it. A missing token, a
+wrong token and an unconfigured `DASHBOARD_TOKEN` all get the ordinary 404
+page, not a `401` — a `401` would confirm both that the path is real and that
+a token opens it. `test/run-endpoint.test.ts` pins each of those.
+
 Both are **deterministic probes**: they fetch, they compare, they report. No
 model is involved on either path, which is why they cost nothing to run daily
 and why they can be unit-tested — `test/checks.test.ts` covers the awkward
@@ -225,8 +248,16 @@ request on. Set one up once:
    made. Leave the existing "Only me" policy alone: that is what lets *you* in
    from a browser, and Service Auth is what lets the runner in. An application
    needs both.
-3. Put the pair in this repository's Actions secrets as `CF_ACCESS_CLIENT_ID`
-   and `CF_ACCESS_CLIENT_SECRET`.
+3. Put the pair on the Worker as `CF_ACCESS_CLIENT_ID` and
+   `CF_ACCESS_CLIENT_SECRET` — not in this repository's Actions secrets, since
+   the checks run as Worker crons and never touch a runner.
+
+**Done, 2026-08-26.** All four Worker secrets were written by dashboard-4's
+*Ops · Give the other repos the credentials they report with*, which fans them
+out from the one repository where they exist. Re-run that job rather than
+setting them by hand: `DASHBOARD_TOKEN` has to match the value on the
+`bba-heartbeat` Worker exactly, and both sides are write-only, so a value typed
+in twice cannot be checked — only replaced together.
 
 The workflows send both headers only when both are set, so nothing breaks if
 the dashboard is ever moved out from behind Access.
