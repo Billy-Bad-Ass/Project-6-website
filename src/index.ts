@@ -141,24 +141,61 @@ async function readClicks(env: Env): Promise<Record<string, number | null>> {
  * host producing two separate findings twenty minutes apart is easier to read
  * than one combined run that half-failed.
  */
-const SCHEDULE: Record<string, 'link-warden' | 'redirect-guard'> = {
+type CheckName = 'link-warden' | 'redirect-guard';
+
+const SCHEDULE: Record<string, CheckName> = {
   '20 7 * * *': 'link-warden',
   '40 7 * * *': 'redirect-guard',
 };
 
 /** Both checks, behind one name, whatever fired them. */
-async function runCheck(which: 'link-warden' | 'redirect-guard'): Promise<CheckResult> {
+async function runCheck(which: CheckName): Promise<CheckResult> {
   return which === 'link-warden' ? linkWarden(fetch) : redirectGuard(fetch, `https://${APEX}`);
+}
+
+/**
+ * Run one check, log what it found, and report it. The whole of a scheduled
+ * run, minus the deciding which.
+ *
+ * Split out of `scheduled` so that `POST /__run/<check>` executes the same
+ * code rather than a second implementation of it. A verification path that
+ * runs different code from the thing it verifies proves nothing about the
+ * thing it verifies.
+ *
+ * Nothing here throws. A check that cannot complete is a finding, not an
+ * exception — and an exception in a cron handler is a run that vanishes
+ * without saying anything, which is the failure mode this whole layer keeps
+ * being rewritten to avoid.
+ */
+async function runAndReport(which: CheckName, env: Env): Promise<string> {
+  const result = await runCheck(which);
+
+  for (const line of result.log) console.log(`  ${line}`);
+
+  // Carried on every run, pass or fail: what is answering on the apex is
+  // worth having in the log even on a good day, and it is the one thing
+  // this Worker cannot assert about itself. See apexIdentity.
+  const apex = await apexIdentity(fetch);
+
+  const summary = result.ok
+    ? `All checks passed — ${apex}.`
+    : `${result.problems.join('; ')} — ${apex}.`;
+
+  console.log(`${which}: ${result.ok ? 'ok' : 'FAILED'} — ${summary}`);
+
+  const reported = await reportRun(env, {
+    agent: which,
+    status: result.ok ? 'ok' : 'failed',
+    summary,
+  });
+  console.log(`${which}: ${reported}`);
+
+  return reported;
 }
 
 export default {
   /**
    * The scheduled checks. See src/checks.ts for what they cover and why.
-   *
-   * Nothing here throws. A check that cannot complete is a finding, not an
-   * exception — and an exception in a cron handler is a run that vanishes
-   * without saying anything, which is the failure mode this whole layer keeps
-   * being rewritten to avoid.
    */
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const which = SCHEDULE[event.cron];
@@ -167,36 +204,55 @@ export default {
       return;
     }
 
-    ctx.waitUntil(
-      (async () => {
-        const result = await runCheck(which);
-
-        for (const line of result.log) console.log(`  ${line}`);
-
-        // Carried on every run, pass or fail: what is answering on the apex is
-        // worth having in the log even on a good day, and it is the one thing
-        // this Worker cannot assert about itself. See apexIdentity.
-        const apex = await apexIdentity(fetch);
-
-        const summary = result.ok
-          ? `All checks passed — ${apex}.`
-          : `${result.problems.join('; ')} — ${apex}.`;
-
-        console.log(`${which}: ${result.ok ? 'ok' : 'FAILED'} — ${summary}`);
-
-        const reported = await reportRun(env, {
-          agent: which,
-          status: result.ok ? 'ok' : 'failed',
-          summary,
-        });
-        console.log(`${which}: ${reported}`);
-      })(),
-    );
+    ctx.waitUntil(runAndReport(which, env));
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
+
+    /**
+     * Run one check now, instead of waiting for 07:20 or 07:40 UTC.
+     *
+     * There is no way to make a Cloudflare cron fire on demand, so a change to
+     * the reporting path — a new service token, a rotated DASHBOARD_TOKEN —
+     * could not be verified until the following morning. "It should work
+     * tomorrow" is not a verified fix, and this repository has already learned
+     * once what happens when a reporting problem sits unnoticed.
+     *
+     * Locked behind DASHBOARD_TOKEN, the secret this Worker already holds:
+     *
+     *  - POST only, so no crawler, prefetch or link can reach it
+     *  - no token configured means 404, not 401. An endpoint that announces
+     *    itself to anyone who guesses the path is worse than one that does not
+     *  - a wrong token gets the same 404, for the same reason
+     *  - it runs the check and reports it through `runAndReport`, exactly as
+     *    the cron does. A verification path that runs different code from the
+     *    thing it verifies proves nothing about the thing it verifies
+     *
+     * The reply is `reportRun`'s own sentence, which is the fact worth having:
+     * `reported (201)`, or the specific reason it was not.
+     */
+    if (path.startsWith('/__run/') && request.method === 'POST') {
+      const which = path.slice('/__run/'.length);
+      const offered = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+
+      if (!env.DASHBOARD_TOKEN || offered !== env.DASHBOARD_TOKEN) {
+        return html(renderNotFound(), 404);
+      }
+      if (which !== 'link-warden' && which !== 'redirect-guard') {
+        return new Response(`No check called "${which}". Try link-warden or redirect-guard.\n`, {
+          status: 404,
+          headers: { 'content-type': 'text/plain; charset=utf-8' },
+        });
+      }
+
+      const reported = await runAndReport(which, env);
+      return new Response(`${which}: ${reported}\n`, {
+        status: 200,
+        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+      });
+    }
 
     // 1. Legacy apex paths, before anything else can claim them.
     const moved = legacyRedirect(url);
