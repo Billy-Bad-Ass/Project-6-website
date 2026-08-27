@@ -343,3 +343,68 @@ describe('the Licence page', () => {
   });
 });
 
+
+/**
+ * The register's rule, enforced across every page rather than in one component.
+ *
+ * `src/businesses.ts` says a business is "only linked as a destination once it
+ * is reachable", and explains why: a dead link on the hub looks like the whole
+ * network is broken, not like one business that has not opened yet.
+ *
+ * That rule was real in `card()` and nowhere else. The footer rendered
+ * `https://${host}/` for every business on every page, and the licence page
+ * hard-coded both hosts in prose. `audit.bbanetwork.org` has no DNS record, so
+ * it was a dead link sitewide.
+ *
+ * These tests assert the invariant rather than the three places that broke it,
+ * so a fourth place cannot reintroduce it.
+ */
+describe('links to business hosts', () => {
+  const pages: Array<[string, string]> = [
+    ['home', renderHome()],
+    ['about', renderAbout()],
+    ['licence', renderLicence()],
+    ['404', renderNotFound()],
+  ];
+
+  const unreachable = BUSINESSES.filter((b) => b.status !== 'live');
+
+  it('has at least one unreachable business, or these tests prove nothing', () => {
+    // If every business goes live this suite silently stops testing anything.
+    // Better to fail loudly and have someone delete it deliberately.
+    expect(unreachable.length).toBeGreaterThan(0);
+  });
+
+  for (const [name, html] of pages) {
+    for (const business of unreachable) {
+      it(`${name} does not link to ${business.host} (${business.status})`, () => {
+        expect(html).not.toContain(`href="https://${business.host}`);
+        expect(html).not.toContain(`href="http://${business.host}`);
+      });
+    }
+
+    it(`${name} still names every listed business`, () => {
+      // Not linking is not the same as hiding. The point is an honest label,
+      // not a business that vanishes from the site until its DNS exists.
+      for (const business of PUBLIC_BUSINESSES) {
+        expect(html).toContain(esc(business.name));
+      }
+    });
+  }
+
+  it('links a live business normally', () => {
+    const live = BUSINESSES.find((b) => b.status === 'live' && !b.unlisted);
+    if (!live) return; // nothing listed and live today; the card tests cover /go/
+    expect(renderHome()).toContain(`href="https://${live.host}/"`);
+  });
+
+  it('marks an unreachable business with its status in the footer', () => {
+    const html = renderHome();
+    const foot = html.slice(html.indexOf('<h4>Businesses</h4>'));
+    const column = foot.slice(0, foot.indexOf('</ul>'));
+    for (const business of unreachable.filter((b) => !b.unlisted)) {
+      expect(column).toContain(esc(business.name));
+      expect(column).toContain('pending-ref');
+    }
+  });
+});

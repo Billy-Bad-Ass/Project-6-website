@@ -15,6 +15,8 @@ import {
   CONTACT_EMAIL,
   INSTAGRAM_URL,
   INSTAGRAM_HANDLE,
+  destination,
+  businessById,
 } from './businesses';
 import type { Business } from './businesses';
 import { signalField, rule, bullet, bulletStop, icon, CARD_ART } from './motifs';
@@ -89,6 +91,42 @@ const STATUS_LABEL: Record<Business['status'], string> = {
   building: 'Building',
   planned: 'Planned',
 };
+
+/**
+ * A business named in running text or in the footer.
+ *
+ * `destination()` is the single source of truth for whether a host may be
+ * linked, and this is the only way prose and the footer are allowed to reach
+ * it. A `building` business renders as its name plus where it is going, not as
+ * an anchor.
+ *
+ * This exists because the rule was previously enforced in `card()` alone. The
+ * footer linked `https://${host}/` for every business unconditionally, and the
+ * licence page hard-coded both hosts — so `audit.bbanetwork.org`, which has no
+ * DNS record, was a live dead link on every page of the site. The register's
+ * own comment already said why that is worse than an absent link: it looks like
+ * the whole network is broken, not one business that has not opened yet.
+ */
+function businessLink(business: Business): string {
+  const url = destination(business);
+  return url
+    ? `<a href="${esc(url)}">${esc(business.name)}</a>`
+    : `<span class="pending-ref">${esc(business.name)} <small>(${STATUS_LABEL[
+        business.status
+      ].toLowerCase()})</small></span>`;
+}
+
+/**
+ * The same, by id, for prose that names one business.
+ *
+ * Throws on an unknown id rather than rendering nothing: a typo here is a
+ * sentence with a hole in it, and the tests run this on every page.
+ */
+function businessLinkById(id: string): string {
+  const business = businessById(id);
+  if (!business) throw new Error(`No business with id "${id}" — check src/businesses.ts`);
+  return businessLink(business);
+}
 
 /**
  * A business card.
@@ -196,9 +234,7 @@ ${body}
     <div class="foot-grid">
       <div>
         <h4>Businesses</h4>
-        <ul>${PUBLIC_BUSINESSES.map(
-          (b) => `<li><a href="https://${esc(b.host)}/">${esc(b.name)}</a></li>`,
-        ).join('')}</ul>
+        <ul>${PUBLIC_BUSINESSES.map((b) => `<li>${businessLink(b)}</li>`).join('')}</ul>
       </div>
       <div>
         <h4>Support</h4>
@@ -403,7 +439,7 @@ export function renderLicence(): string {
 
       <h2 id="guides">Printable guides</h2>
       <p class="applies">
-        Applies to anything bought from <a href="https://guides.bbanetwork.org/">BBA Guides</a>
+        Applies to anything bought from ${businessLinkById('guides')}
         &mdash; the downloadable PDFs.
       </p>
 
@@ -461,7 +497,7 @@ ${rule()}
     <div class="prose">
       <h2 id="audit">Website Health Check</h2>
       <p class="applies">
-        Applies to the <a href="https://audit.bbanetwork.org/">Website Health Check</a>
+        Applies to the ${businessLinkById('audit')}
         &mdash; a report written for you, not a file off a shelf.
       </p>
 

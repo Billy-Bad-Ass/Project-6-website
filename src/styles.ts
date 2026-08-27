@@ -429,6 +429,12 @@ h2 { font-size: clamp(1.7rem, 1.2rem + 1.6vw, 2.5rem); margin: 0 0 .7rem; }
 .pending-note { font-size: .86rem; color: var(--text-dim); margin: 0; }
 .pending-note code { font-family: var(--mono); font-size: .95em; color: var(--text-muted); }
 
+/* A business named in prose or the footer that is not reachable yet. It reads
+   as text rather than an anchor, because linking a host with no DNS record
+   makes the whole network look broken. See businessLink() in src/render.ts. */
+.pending-ref { color: var(--text-muted); }
+.pending-ref small { color: var(--text-dim); font-size: .85em; }
+
 /* ---------------------------------------------------------------- footer -- */
 
 footer { border-top: 1px solid var(--line); padding-block: 3rem 3.5rem; margin-top: 2rem; background: var(--bg-sunken); }
