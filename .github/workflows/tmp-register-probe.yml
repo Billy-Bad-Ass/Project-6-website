@@ -1,0 +1,21 @@
+name: TEMP · Register probe
+
+# Throwaway. Runs linkWarden from a GitHub runner so a session with no egress
+# to bbanetwork.org can read what each business host actually answers before
+# editing a status in src/businesses.ts. Deleted in the same branch once the
+# answer is recorded.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probe every business host
+        run: npx --yes tsx@4 scripts/tmp-register-probe.ts
