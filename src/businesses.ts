@@ -46,7 +46,16 @@ export interface Business {
   repo: string;
   /** Project 4's portfolio slug, so its runs and this hub agree on names. */
   portfolioSlug: string;
-  /** Shown on the card. Kept vague on purpose: exact prices live on the sites. */
+  /**
+   * Shown on the card. Kept vague on purpose: exact prices live on the sites.
+   *
+   * Vague about the *amount*, never about the currency. This read "From a few
+   * pounds" for the store while `network-store-2/catalog/products.json` had
+   * `"currency": "usd"` and every guide priced at 945 minor units — so the hub
+   * quoted a currency the checkout does not take, on the one line a visitor
+   * reads before deciding whether they can afford it. The network sells in
+   * USD. Write the symbol.
+   */
   priceHint?: string;
   /** Listed on the card so a visitor knows what they are getting before a click. */
   highlights: string[];
@@ -89,11 +98,16 @@ export const BUSINESSES: Business[] = [
     blurb:
       'One page, one problem, built around the way the hobby is actually done. Print it, keep ' +
       'it beside your setup, and get back to making things.',
-    status: 'building',
+    // Probed from a GitHub runner on 2026-08-29 at 04:59 UTC — 00:59 ET:
+    // `guides.bbanetwork.org` answered `200`. The redirect guard has logged the
+    // same `200` on every run since 2026-08-24, so this said `building` for
+    // five days while the store was open and taking checkout. See the note on
+    // `linkWarden` in src/checks.ts for why nothing caught it.
+    status: 'live',
     revenueModel: 'stripe-checkout',
     repo: 'Billy-Bad-Ass/network-store-2',
     portfolioSlug: 'project-2',
-    priceHint: 'From a few pounds',
+    priceHint: 'From $9.45',
     highlights: [
       'Espresso dial-in troubleshooting card',
       'Keyboard sound & mod chart',
@@ -111,6 +125,12 @@ export const BUSINESSES: Business[] = [
       'detect issues, and uncover opportunities for improvement. Each review combines ' +
       'intelligent automation, technical measurements, and experienced human judgment to give ' +
       'you a clear picture of how your site is performing \u2014 and where it can be made better.',
+    // Probed in the same run, one line after `guides`: `audit.bbanetwork.org`
+    // answered `0` — nothing there at all. So this stays `building`, and it is
+    // the honest value rather than a stale one. What it is waiting on is not
+    // code in any repo: the host has to be attached to Project 1's Worker in
+    // the Cloudflare dashboard, which the deploy token cannot do. See
+    // docs/DOMAINS.md.
     status: 'building',
     revenueModel: 'stripe-payment-link',
     repo: 'Billy-Bad-Ass/sitecheck-1',

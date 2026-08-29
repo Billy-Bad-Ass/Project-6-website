@@ -68,9 +68,6 @@ jobs:
       #
       # It fires only when nothing in the log says reporting was attempted, so
       # a normal failing check is never reported twice.
-      - name: TEMP probe every business host
-        run: npx --yes tsx@4 scripts/tmp-register-probe.ts
-
       - name: Say so if the script died before it could report
         if: always()
         env:
