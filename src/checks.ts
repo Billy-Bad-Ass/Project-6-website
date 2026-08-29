@@ -135,29 +135,59 @@ export async function redirectGuard(fetcher: Fetcher, base: string): Promise<Che
 }
 
 /**
- * Every business the register calls `live`.
- *
- * `building` is allowed to answer with nothing — the hub renders it as a
- * disabled card rather than a link, which is the entire point of the status.
- * Only `live` is a promise, and only promises are checked.
+ * Every business in the register, against what its host actually answers.
  *
  * Anything in the 2xx or 3xx range counts as answering. A `3xx` is not a
  * consolation prize here: `heartbeat.` sits behind Cloudflare Access, so a
  * redirect to a login page is exactly what a healthy locked door looks like.
+ *
+ * This used to `continue` past anything that was not `live`, on the reasoning
+ * that only `live` is a promise and only promises are worth checking. Half of
+ * that is right and the half that is wrong cost real money.
+ *
+ * `guides.bbanetwork.org` started serving on 2026-08-24 — the redirect guard
+ * logged it `200` the same day and every day after. The register still said
+ * `building`, so the hub kept rendering the store as a disabled card reading
+ * "Opening at guides.bbanetwork.org shortly" while the store sat there taking
+ * checkout. Nothing complained, because the only check that looks at hosts
+ * skipped it for being `building`. It went five days.
+ *
+ * A stale `building` is not the harmless direction of wrong. It is a shop with
+ * the lights on and the CLOSED sign still hanging in the door, and it is
+ * *quieter* than the failure the warden was built for, because a broken `live`
+ * card at least looks broken. So drift is now checked in both directions:
+ *
+ *   - `live` and the host does not answer  → the promise is broken.
+ *   - not `live` and the host does answer  → the register is behind reality.
+ *
+ * Neither is reported as an outage of the *host*. Both are reported as the
+ * register and the infrastructure disagreeing, which is what they are, and the
+ * fix for each is a different one-line edit by a human — see rule 2 in
+ * CLAUDE.md before reaching for the wrong one.
  */
 export async function linkWarden(fetcher: Fetcher): Promise<CheckResult> {
   const problems: string[] = [];
   const log: string[] = [];
 
   for (const business of BUSINESSES) {
-    if (business.status !== 'live') continue;
-
     const { status } = await probe(fetcher, `https://${business.host}/`);
-    log.push(`${business.id} (${business.host}) → ${status}`);
+    const answered = status >= 200 && status < 400;
+    log.push(`${business.id} (${business.host}, ${business.status}) → ${status}`);
 
-    if (status < 200 || status >= 400) {
+    if (business.status === 'live' && !answered) {
       problems.push(
         `${business.id} is marked live in the register but ${business.host} answered ${status}`,
+      );
+    }
+
+    // Deliberately not a silent pass. The register is the thing the hub
+    // renders, so a business that is up and still marked `building` is a
+    // customer being turned away by this repo rather than by its own site.
+    if (business.status !== 'live' && answered) {
+      problems.push(
+        `${business.id} is marked ${business.status} in the register but ${business.host} ` +
+          `answered ${status}. The hub is rendering a disabled card for a host that is ` +
+          `serving — set it to live in src/businesses.ts.`,
       );
     }
   }

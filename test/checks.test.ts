@@ -114,10 +114,26 @@ describe('redirectGuard', () => {
 
 describe('linkWarden', () => {
   const live = BUSINESSES.filter((b) => b.status === 'live');
-  const building = BUSINESSES.filter((b) => b.status !== 'live');
+  const pending = BUSINESSES.filter((b) => b.status !== 'live');
 
-  it('passes when every live host answers', async () => {
-    const result = await linkWarden(stub({}));
+  /**
+   * The world the register describes when it is telling the truth: every
+   * `live` host answers, and every host that is not `live` answers nothing.
+   *
+   * Spelled out rather than leaning on the stub's default, which is 200 for
+   * anything unnamed. That default is now itself a drift finding for a
+   * `building` business, so a test resting on it would assert the opposite of
+   * what its name claims.
+   */
+  function agreeing(): Record<string, { status: number } | null> {
+    const routes: Record<string, { status: number } | null> = {};
+    for (const business of live) routes[`https://${business.host}/`] = { status: 200 };
+    for (const business of pending) routes[`https://${business.host}/`] = null;
+    return routes;
+  }
+
+  it('passes when the register and the hosts agree', async () => {
+    const result = await linkWarden(stub(agreeing()));
     expect(result.ok).toBe(true);
   });
 
@@ -127,7 +143,7 @@ describe('linkWarden', () => {
    * and getting this wrong would mean a daily false alarm forever.
    */
   it('treats a 302 as healthy, because Access answers that way', async () => {
-    const routes: Record<string, { status: number }> = {};
+    const routes = agreeing();
     for (const business of live) routes[`https://${business.host}/`] = { status: 302 };
 
     const result = await linkWarden(stub(routes));
@@ -136,7 +152,7 @@ describe('linkWarden', () => {
 
   it('fails when a live host does not resolve', async () => {
     expect(live.length).toBeGreaterThan(0);
-    const routes: Record<string, null> = {};
+    const routes = agreeing();
     routes[`https://${live[0]!.host}/`] = null;
 
     const result = await linkWarden(stub(routes));
@@ -146,7 +162,7 @@ describe('linkWarden', () => {
   });
 
   it('fails when a live host answers 500', async () => {
-    const routes: Record<string, { status: number }> = {};
+    const routes = agreeing();
     routes[`https://${live[0]!.host}/`] = { status: 500 };
 
     const result = await linkWarden(stub(routes));
@@ -154,18 +170,48 @@ describe('linkWarden', () => {
   });
 
   /**
-   * `building` is allowed to 404. The hub renders it as a disabled card rather
-   * than a link, which is the whole point of the status — and a warden that
-   * failed on it would make the honest state of the register unreportable.
+   * The drift that actually happened, and the reason this check changed.
+   *
+   * `guides.` started serving on 2026-08-24. The register said `building`
+   * until 2026-08-29, so the hub rendered a disabled card reading "Opening
+   * shortly" over a store that was taking checkout. The warden skipped it for
+   * not being `live` — it was the one business it most needed to look at.
    */
-  it('ignores hosts that are not marked live', async () => {
-    expect(building.length).toBeGreaterThan(0);
-    const routes: Record<string, null> = {};
-    for (const business of building) routes[`https://${business.host}/`] = null;
+  it('fails when a host that is not marked live is serving anyway', async () => {
+    expect(pending.length).toBeGreaterThan(0);
+    const routes = agreeing();
+    routes[`https://${pending[0]!.host}/`] = { status: 200 };
+
+    const result = await linkWarden(stub(routes));
+    expect(result.ok).toBe(false);
+    expect(result.problems[0]).toContain(pending[0]!.host);
+    expect(result.problems[0]).toContain('answered 200');
+  });
+
+  /**
+   * A `building` host that answers nothing is the honest case, not a fault.
+   * `audit.` is exactly that today — no DNS record, Project 1 still building
+   * it — and a warden that complained would cry wolf every day until nobody
+   * read it.
+   */
+  it('accepts a host that is not marked live answering nothing', async () => {
+    const routes = agreeing();
+    routes[`https://${pending[0]!.host}/`] = null;
 
     const result = await linkWarden(stub(routes));
     expect(result.ok).toBe(true);
-    expect(result.log.join(' ')).not.toContain(building[0]!.host);
+  });
+
+  /**
+   * Every business is probed now, whatever its status. The old warden logged
+   * only the `live` ones, so a `building` business was absent from the run log
+   * as well as unchecked — there was nothing for a human to notice either.
+   */
+  it('logs every business, not only the live ones', async () => {
+    const result = await linkWarden(stub(agreeing()));
+    for (const business of BUSINESSES) {
+      expect(result.log.join(' ')).toContain(business.host);
+    }
   });
 });
 

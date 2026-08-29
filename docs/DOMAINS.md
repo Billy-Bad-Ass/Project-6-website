@@ -64,7 +64,7 @@ these are no longer preparations, they are open gaps on a live domain.
 | --- | --- |
 | 1. Repoint the Stripe webhook | Done, 2026-08-24. Sandbox account, test mode. |
 | 2. Email Routing for `support@` | Enabled on the zone. Routes still to be confirmed — see below. |
-| 3. `guides.` points at the store | Done. Probed reachable 2026-08-24 12:04. |
+| 3. `guides.` points at the store | Done. Probed reachable 2026-08-24 12:04, and `200` again 2026-08-29 04:59 UTC — 00:59 ET. The register only caught up on the 29th; see below. |
 | 4. Apex attached to this hub | **Done.** |
 | 5. `www.` attached to this hub | **No. There is no DNS record for it.** |
 | 6. `heartbeat.` attached, behind Access | Done. Probed `302` 2026-08-24 12:11. |
@@ -90,6 +90,37 @@ probe as the answer.
 `audit.` is genuinely absent, and genuinely fine: it is `building` in the
 register, and the hub renders a `building` business as a disabled card rather
 than a link, which is exactly what that status is for.
+
+Still true on 2026-08-29. A probe from a GitHub runner at 04:59 UTC — 00:59 ET
+— read `audit.bbanetwork.org → 0`: nothing answers at all. **This is the one
+thing on this page that Claude cannot finish.** Attaching the host to Project
+1's Worker is a Cloudflare dashboard action and the deploy token does not have
+the permission, so `audit` stays `building` until a human does it.
+
+### The register went stale on `guides.`, for five days
+
+`guides.` came up on 2026-08-24 and `src/businesses.ts` said `building` until
+2026-08-29. For those five days the hub rendered the store as a disabled card
+reading *"Opening at guides.bbanetwork.org shortly"* over a storefront that was
+open and taking checkout, and the same card quoted its price in pounds while
+`network-store-2` sells in USD.
+
+Nothing complained, and the reason is worth keeping. `linkWarden` probed only
+the businesses marked `live` — on the reasoning that only `live` is a promise,
+so only `live` is worth checking. That skipped precisely the business whose
+status was wrong. The redirect guard had `guides.bbanetwork.org → 200` in its
+log every single day of it, next to a register that said otherwise, and no
+check compared the two.
+
+`linkWarden` now probes every business and reports drift in both directions.
+A stale `building` is the quieter of the two failures and the more expensive:
+a broken `live` card at least looks broken, whereas a shop with the lights on
+and the CLOSED sign still in the door just turns people away.
+
+The rule that falls out of it, alongside the one about where a check runs:
+
+> **A check that only looks at the rows it expects to be right cannot find the
+> row that is wrong.**
 
 `go.` and `ops.` belong to `bba-growth-os`, which is not built here. Noted so
 nobody assumes an unfamiliar record is stale and deletes it. Worth knowing that
