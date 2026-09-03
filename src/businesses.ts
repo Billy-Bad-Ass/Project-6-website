@@ -148,22 +148,24 @@ export const BUSINESSES: Business[] = [
       'detect issues, and uncover opportunities for improvement. Each review combines ' +
       'intelligent automation, technical measurements, and experienced human judgment to give ' +
       'you a clear picture of how your site is performing \u2014 and where it can be made better.',
-    // `building`, and the word is doing its job rather than being downgraded
-    // to silence an alarm.
+    // `live`, and this time the word was earned before it was written.
     //
-    // This was set to `live` on 2026-09-03 in the same commit that taught the
-    // hub to serve the sales site on this hostname. That was half a fix. The
-    // bridge is deployed and its tests pass, but a Worker only sees a request
-    // for a hostname that is *routed* to it, and `audit.bbanetwork.org` is
-    // attached to nothing: `redirect-guard` probed it minutes later and got
-    // `0` — no DNS, no TLS, no answer.
+    // The hostname was attached to `bba-network-hub` on 2026-09-03, and the
+    // guard found it within the minute — its drift check reported "marked
+    // building but answered 200. The bridge is working." Probed for content
+    // rather than status, from a runner, before this line changed:
     //
-    // So the card claimed live over a button that went nowhere, which is the
-    // exact failure the honesty rule at the top of this file exists to stop,
-    // and it lasted one deploy. The bridge stays and is dormant until the
-    // hostname is attached to `bba-network-hub` in the Cloudflare dashboard;
-    // the moment it is, this becomes `live` and the guard confirms it.
-    status: 'building',
+    //     served-by  bba-network-hub (bridge)
+    //     title      Website Health Check — find what's costing you customers
+    //     buy link   YES
+    //     hub page?  no
+    //     /legal.html                → 200 text/html
+    //     /assets/report-preview.png → 200 image/png
+    //
+    // That last pair matters as much as the first: a `200` alone was what this
+    // hostname returned on 2026-08-29 while serving the hub's own homepage, so
+    // "it answers" was never the question. What the page says is.
+    status: 'live',
     revenueModel: 'stripe-payment-link',
     repo: 'Billy-Bad-Ass/sitecheck-1',
     portfolioSlug: 'project-1',
