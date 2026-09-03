@@ -276,17 +276,21 @@ guard probes the destination for exactly that reason.
 Done. The four taps are below, and they are the same four for any host — `www.`
 included.
 
-### 5. Point `production.` at the BBA Production site — **outstanding**
+### 5. Point `production.` at the BBA Production site — done
 
-This is the only open item in this file, and it is the four taps below with two
-values changed.
+Attached to `bba-production-form` on 2026-09-03 and confirmed from a GitHub
+runner at 18:59 UTC — 2:59 PM ET — before the register was changed:
 
-BBA Production's site is finished and answering. It is its own Worker —
-`bba-production-form`, built from `bba-production/form/` in
-`Billy-Bad-Ass/Code` — and it has been serving the catalog and writing
-enquiries to the `bba-production` D1 database since 2026-09-03. What it does
-not have is a hostname on this zone, so the hub renders it as `building` and
-the card does not link anywhere.
+```
+production (production.bbanetwork.org, building) → 200
+production (production.bbanetwork.org) → 200 — BBA Production — We build it. You own it.
+```
+
+Both lines, not just the first. A `200` on its own is what `audit.` returned
+for five days in August while serving the hub's homepage, so *it answers* has
+never been the question here. What it answers **with** is.
+
+The four taps are below for the next host. They were, with two values changed:
 
 1. Cloudflare → **Workers & Pages** → **bba-production-form**
 2. **Settings** → **Domains & Routes** → **Add** → **Custom domain**
@@ -300,15 +304,16 @@ site is published to GitHub Pages and could not take the hostname — see *The
 audit bridge* at the end of this file, and do not copy the pattern where it is
 not needed.
 
-Then flip the register: `status: 'live'` on the `production` entry in
-`src/businesses.ts`, and update `contact.formUrl` in
-`Code/bba-production/catalog.json` to the new address.
+Then flip the register: `status: 'live'` on the entry in `src/businesses.ts`,
+and anything outside this repo that points at the old address — for
+`production.` that was `contact.formUrl` in `Code/bba-production/catalog.json`.
 
-Nothing here breaks if the flip is forgotten, but it will be noticed rather
-than silently wrong: `link-warden` checks drift in both directions, so a
-`building` host that answers `200` is reported as a finding the same day. That
-check exists because `guides.` sat marked `building` for five days while the
-store was open — see *The register went stale on `guides.`* above.
+Nothing breaks if the flip is forgotten, but it will not be silent:
+`link-warden` checks drift in both directions, so a `building` host that
+answers `200` is reported as a finding the same day. That is how this one was
+caught within the hour. The check exists because `guides.` sat marked
+`building` for five days while the store was open — see *The register went
+stale on `guides.`* above.
 
 ## Attaching a domain to a Worker
 
@@ -386,11 +391,13 @@ table as one input and a probe as the answer.*
 | `audit.bbanetwork.org` | `200` | this hub, bridged to Project 1's site |
 | `guides.bbanetwork.org` | `200` | Project 2's store |
 | `heartbeat.bbanetwork.org` | `302` → Access login | Project 4, locked as intended |
-| `production.bbanetwork.org` | — | **not attached yet** — see step 5 above |
+| `production.bbanetwork.org` | `200` | BBA Production's own Worker |
 
-Every host in the zone that exists answers. `production.` was added to the
-register on 2026-09-03 and is the one host in this table that has never been
-pointed at anything; the row is here so the gap is visible rather than absent.
+Every host in the zone answers, and — since 2026-09-03 — every one of them is
+read rather than only pinged. `scripts/redirect-guard.ts` now runs `linkWarden`
+with `skipBridged` off and prints the page title each host served, so the next
+time a hostname answers `200` with the wrong site, the run log says so on the
+morning it starts rather than five days later.
 
 `redirect-guard` asserts all of it from a runner, including `www` — which
 nothing checked until today, on the reasoning that there was nothing there to
