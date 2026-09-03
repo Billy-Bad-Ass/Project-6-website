@@ -148,16 +148,22 @@ export const BUSINESSES: Business[] = [
       'detect issues, and uncover opportunities for improvement. Each review combines ' +
       'intelligent automation, technical measurements, and experienced human judgment to give ' +
       'you a clear picture of how your site is performing \u2014 and where it can be made better.',
-    // `live` because a customer can reach this host and pay today — which is
-    // the whole of what the word promises at the top of this file.
+    // `building`, and the word is doing its job rather than being downgraded
+    // to silence an alarm.
     //
-    // It was `building` from 2026-08-24 to 2026-09-03, correctly: the host
-    // answered nothing at all. What changed is not the sales site, which has
-    // been finished and taking Stripe payments the whole time at
-    // billy-bad-ass.github.io/sitecheck-1/audit/. What changed is that the hub
-    // now serves it on this hostname — see `upstream` below and the note on
-    // the interface for why that route, and why it is temporary.
-    status: 'live',
+    // This was set to `live` on 2026-09-03 in the same commit that taught the
+    // hub to serve the sales site on this hostname. That was half a fix. The
+    // bridge is deployed and its tests pass, but a Worker only sees a request
+    // for a hostname that is *routed* to it, and `audit.bbanetwork.org` is
+    // attached to nothing: `redirect-guard` probed it minutes later and got
+    // `0` — no DNS, no TLS, no answer.
+    //
+    // So the card claimed live over a button that went nowhere, which is the
+    // exact failure the honesty rule at the top of this file exists to stop,
+    // and it lasted one deploy. The bridge stays and is dormant until the
+    // hostname is attached to `bba-network-hub` in the Cloudflare dashboard;
+    // the moment it is, this becomes `live` and the guard confirms it.
+    status: 'building',
     revenueModel: 'stripe-payment-link',
     repo: 'Billy-Bad-Ass/sitecheck-1',
     portfolioSlug: 'project-1',
