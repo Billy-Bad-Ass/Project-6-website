@@ -260,6 +260,34 @@ describe('linkWarden', () => {
   });
 
   /**
+   * The same host, from a runner, which is somewhere else and can see it.
+   *
+   * The skip is a workaround for where the Worker runs, not a statement that
+   * the host is unknowable — and for a fortnight the difference was lost: the
+   * skip's own note said `redirect-guard` covered these from outside while
+   * `redirect-guard` probed only the apex, so `audit.` was checked by nothing.
+   *
+   * Both directions are asserted, because a probe that quietly did nothing
+   * would pass a test that only checked the happy answer.
+   */
+  it('probes a bridged host when the caller is outside this Worker', async () => {
+    const bridged: Business = {
+      ...pendingFixture,
+      status: 'live',
+      upstream: 'https://example.org/somewhere/',
+    };
+
+    const up = await linkWarden(stub({ [`https://${bridged.host}/`]: { status: 200 } }), [bridged], false);
+    expect(up.ok).toBe(true);
+    expect(up.log.join(' ')).not.toContain('this Worker serves it');
+    expect(up.log.join(' ')).toContain(`${bridged.host}, live) \u2192 200`);
+
+    const down = await linkWarden(stub({ [`https://${bridged.host}/`]: null }), [bridged], false);
+    expect(down.ok).toBe(false);
+    expect(down.problems.join(' ')).toContain('marked live in the register');
+  });
+
+  /**
    * Every business is probed now, whatever its status. The old warden logged
    * only the `live` ones, so a `building` business was absent from the run log
    * as well as unchecked — there was nothing for a human to notice either.

@@ -263,6 +263,20 @@ export async function linkWarden(
    * Coverage that evaporates when the data changes is not coverage.
    */
   businesses: readonly Business[] = BUSINESSES,
+  /**
+   * Whether to skip the hosts this Worker serves.
+   *
+   * `true` — the default, and correct for every caller inside the Worker, for
+   * the reason spelled out below: Cloudflare answers a Worker's subrequest to
+   * its own route with `522`, so probing a bridged host from in there reports
+   * a daily outage that is not happening.
+   *
+   * `false` for scripts/redirect-guard.ts, which runs on a GitHub runner. A
+   * runner is genuinely somewhere else, so it can probe every host including
+   * the bridged ones — and it is the only place an answer about DNS means
+   * anything at all.
+   */
+  skipBridged = true,
 ): Promise<CheckResult> {
   const problems: string[] = [];
   const log: string[] = [];
@@ -281,8 +295,15 @@ export async function linkWarden(
      * Skipped, not silently: the run log says which host and why, and
      * `redirect-guard` covers these from outside — which is the only place the
      * answer means anything.
+     *
+     * That last clause was aspirational when it was written. `redirect-guard`
+     * probed the apex and nothing else, so `audit.bbanetwork.org` was skipped
+     * here and checked nowhere — the one bridged host in the register was the
+     * one host in the network with no automated check on it at all. The
+     * runner now runs this same function with `skipBridged` off, which is what
+     * the sentence always claimed.
      */
-    if (business.upstream) {
+    if (business.upstream && skipBridged) {
       log.push(
         `${business.id} (${business.host}, ${business.status}) → skipped, this Worker serves it; ` +
           `redirect-guard checks it from a runner`,

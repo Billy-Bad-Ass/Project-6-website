@@ -23,10 +23,35 @@
  * It imports the same `redirectGuard` the Worker did. A verification path that
  * runs different code from the thing it verifies proves nothing about the
  * thing it verifies.
+ *
+ * ## It probes the business hosts too, since 2026-09-03
+ *
+ * `link-warden` runs on the Worker's own cron and skips the hosts this Worker
+ * serves, with a note saying `redirect-guard` covers them from a runner. It
+ * did not. This script probed the apex and nothing else, so
+ * `audit.bbanetwork.org` — the one bridged host in the register — was skipped
+ * in one place and absent from the other, and was the only host in the network
+ * with no automated check on it whatsoever.
+ *
+ * So the warden runs here as well, with `skipBridged` off. Two things follow
+ * that are worth having on purpose:
+ *
+ *   - Every host is now probed from genuinely outside the network, which is
+ *     the only place an answer about DNS is evidence rather than a statement
+ *     about this process.
+ *   - The two runs can disagree. If the Worker's own pass ever reports a host
+ *     down that the runner finds up, that is the `522` trap showing itself,
+ *     and it now shows as two runs saying different things rather than as one
+ *     unchallenged wrong answer.
+ *
+ * They report as two runs under their own names rather than one merged run.
+ * An agent is one subject: merging them would put host findings under the name
+ * of the check that watches customer download links, and the day one of them
+ * breaks nobody would know which.
  */
 
 import { APEX } from '../src/businesses';
-import { apexIdentity, redirectGuard } from '../src/checks';
+import { apexIdentity, linkWarden, redirectGuard } from '../src/checks';
 import { reportRun } from '../src/report';
 
 const env = {
@@ -54,7 +79,32 @@ console.log(`redirect-guard: ${await reportRun(env, {
   summary,
 })}`);
 
+/**
+ * Every business host, bridged ones included, from out here.
+ *
+ * `skipBridged: false` is the whole reason this runs on a runner rather than
+ * on the Worker. Read the run log before the verdict — the log line for a host
+ * is the evidence, and the verdict is only what the register makes of it.
+ */
+console.log('');
+const hosts = await linkWarden(fetch, undefined, false);
+for (const line of hosts.log) console.log(`  ${line}`);
+
+const hostSummary = hosts.ok
+  ? 'Every business host answered, and the register agrees with all of them.'
+  : hosts.problems.join('; ');
+
+console.log(`link-warden: ${hosts.ok ? 'ok' : 'FAILED'} — ${hostSummary}`);
+console.log(`link-warden: ${await reportRun(env, {
+  agent: 'link-warden',
+  status: hosts.ok ? 'ok' : 'failed',
+  summary: `${hostSummary} Probed from a GitHub runner, so bridged hosts are included.`,
+})}`);
+
 // The reporting result deliberately does not affect this. A dashboard that
 // will not take a log entry is not a reason to call a passing check failed,
 // and it is not a reason to call a failing one passed either.
-if (!result.ok) process.exit(1);
+//
+// Both checks run before either can exit: a failing apex must not hide the
+// state of the hosts, which is the half a human is more likely to act on.
+if (!result.ok || !hosts.ok) process.exit(1);
