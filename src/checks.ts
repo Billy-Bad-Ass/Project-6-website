@@ -38,7 +38,7 @@
  * people's hostnames, which a Worker reaches perfectly well.
  */
 
-import { APEX, BUSINESSES } from './businesses';
+import { APEX, BRIDGED, BUSINESSES, type Business } from './businesses';
 import { LEGACY_RULES } from './redirects';
 
 /** The store every legacy rule points at. */
@@ -131,6 +131,30 @@ export async function redirectGuard(fetcher: Fetcher, base: string): Promise<Che
     );
   }
 
+  /**
+   * The hostnames the hub serves for another business.
+   *
+   * `linkWarden` cannot check these — it runs inside the Worker that answers
+   * them, and Cloudflare replies `522` to a Worker probing its own route. This
+   * guard runs on a GitHub runner, which is genuinely somewhere else, so it is
+   * the only check whose answer about them means anything.
+   *
+   * Asserted, not merely logged. A bridged host that stops answering is a
+   * business with a `live` card and a dead front door, which is precisely the
+   * failure the register's honesty rule exists to prevent.
+   */
+  for (const business of BRIDGED) {
+    const { status } = await probe(fetcher, `https://${business.host}/`);
+    log.push(`${business.host} (bridged) → ${status}`);
+    if (status < 200 || status >= 400) {
+      problems.push(
+        `${business.host} is served by this hub from ${business.upstream} and answered ` +
+          `${status}. Its card says live, so a customer is being shown a door that does ` +
+          `not open.`,
+      );
+    }
+  }
+
   return { agent: 'redirect-guard', ok: problems.length === 0, problems, log };
 }
 
@@ -165,11 +189,46 @@ export async function redirectGuard(fetcher: Fetcher, base: string): Promise<Che
  * fix for each is a different one-line edit by a human — see rule 2 in
  * CLAUDE.md before reaching for the wrong one.
  */
-export async function linkWarden(fetcher: Fetcher): Promise<CheckResult> {
+export async function linkWarden(
+  fetcher: Fetcher,
+  /**
+   * The register, by default. Overridable so the drift cases can be tested
+   * with a business of each status.
+   *
+   * They used to be driven by whatever the real register happened to contain,
+   * which worked only while it contained a mixture. On 2026-09-03 the last
+   * `building` business went live and two of them started asserting against an
+   * empty array — the drift logic was still correct and no longer covered.
+   * Coverage that evaporates when the data changes is not coverage.
+   */
+  businesses: readonly Business[] = BUSINESSES,
+): Promise<CheckResult> {
   const problems: string[] = [];
   const log: string[] = [];
 
-  for (const business of BUSINESSES) {
+  for (const business of businesses) {
+    /**
+     * A host this Worker serves cannot be checked from inside this Worker.
+     *
+     * Cloudflare answers a Worker's subrequest to its own route with `522`, so
+     * probing `audit.bbanetwork.org` from here would report a daily outage on
+     * a business that is answering perfectly well. That is the same trap that
+     * made `redirect-guard` cry wolf every morning from 2026-08-24 until it
+     * moved to a GitHub runner, and it arrived here the moment the hub started
+     * bridging a business hostname.
+     *
+     * Skipped, not silently: the run log says which host and why, and
+     * `redirect-guard` covers these from outside — which is the only place the
+     * answer means anything.
+     */
+    if (business.upstream) {
+      log.push(
+        `${business.id} (${business.host}, ${business.status}) → skipped, this Worker serves it; ` +
+          `redirect-guard checks it from a runner`,
+      );
+      continue;
+    }
+
     const { status } = await probe(fetcher, `https://${business.host}/`);
     const answered = status >= 200 && status < 400;
     log.push(`${business.id} (${business.host}, ${business.status}) → ${status}`);

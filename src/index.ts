@@ -17,7 +17,15 @@
 
 import { legacyRedirect } from './redirects';
 import { renderHome, renderAbout, renderLicence, renderNotFound, renderSitemap } from './render';
-import { BUSINESSES, PUBLIC_BUSINESSES, businessById, destination, APEX } from './businesses';
+import {
+  BUSINESSES,
+  PUBLIC_BUSINESSES,
+  businessById,
+  bridgeFor,
+  destination,
+  APEX,
+  SUPPORT_EMAIL,
+} from './businesses';
 import { BRAND_CSS } from './styles';
 import { linkWarden, type CheckResult } from './checks';
 import { reportRun, type ReportEnv } from './report';
@@ -208,6 +216,77 @@ async function runAndReport(which: CheckName, env: Env): Promise<string> {
   return reported;
 }
 
+/**
+ * Serve a bridged business's site from wherever it is actually published.
+ *
+ * A fetch and a copy, not a redirect. A `302` to
+ * `billy-bad-ass.github.io/sitecheck-1/audit/` would work and would put a
+ * stranger's-looking address in the bar of a page asking for $100, which is
+ * the kind of detail that quietly costs a sale.
+ *
+ * Three things this has to get right, and all three are why it is not a
+ * one-liner:
+ *
+ *  - **The path.** The upstream lives in a subdirectory. `/legal.html` here
+ *    has to become `.../sitecheck-1/audit/legal.html` there, and `/` has to
+ *    resolve to that directory's index rather than 404. The site's own links
+ *    are relative (`legal.html`, `assets/…`), so once the prefix is right the
+ *    page hangs together on this hostname with nothing rewritten.
+ *  - **Not forwarding the Host header.** Passing this request's headers
+ *    upstream would send `Host: audit.bbanetwork.org` to GitHub Pages, which
+ *    serves a different site — or none — for a host it does not recognise.
+ *    Only the method and a couple of safe headers travel.
+ *  - **Saying so when the upstream fails.** A blank 502 on a sales page reads
+ *    as a dead business. The upstream's own status is passed through, and a
+ *    network failure gets a short honest page rather than nothing.
+ */
+async function serveUpstream(upstream: string, url: URL, request: Request): Promise<Response> {
+  // GET and HEAD only. Nothing on this site takes a submission — checkout is
+  // Stripe's hosted page on its own domain — so anything else is either a
+  // mistake or a probe, and forwarding it would be neither safe nor useful.
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('Method not allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
+  }
+
+  const base = new URL(upstream);
+  // `/` → the upstream directory itself; `/legal.html` → alongside it. The
+  // leading slash is stripped so URL resolution keeps the subdirectory rather
+  // than jumping to the upstream's root, which is a different product.
+  const target = new URL(url.pathname.replace(/^\/+/, '') + url.search, base);
+
+  let upstreamResponse: Response;
+  try {
+    upstreamResponse = await fetch(target.toString(), {
+      method: request.method,
+      headers: {
+        accept: request.headers.get('accept') ?? '*/*',
+        'accept-language': request.headers.get('accept-language') ?? 'en',
+        'user-agent': request.headers.get('user-agent') ?? 'bba-network-hub',
+      },
+      redirect: 'follow',
+    });
+  } catch {
+    return new Response(
+      'This page is temporarily unavailable. Please try again shortly, or email ' +
+        `${SUPPORT_EMAIL}.`,
+      { status: 502, headers: { 'content-type': 'text/plain; charset=utf-8' } },
+    );
+  }
+
+  // The upstream's body and content type, this Worker's caching. Hop-by-hop
+  // and GitHub's own headers are dropped rather than passed on.
+  const headers = new Headers();
+  const contentType = upstreamResponse.headers.get('content-type');
+  if (contentType) headers.set('content-type', contentType);
+  headers.set('cache-control', 'public, max-age=300');
+  headers.set('x-served-by', 'bba-network-hub (bridge)');
+
+  return new Response(upstreamResponse.body, {
+    status: upstreamResponse.status,
+    headers,
+  });
+}
+
 export default {
   /**
    * The scheduled checks. See src/checks.ts for what they cover and why.
@@ -225,6 +304,24 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
+
+    /**
+     * A bridged business, served on its own hostname — before the rest of the
+     * router gets a look at the request.
+     *
+     * First, deliberately. Everything below this line is written about the
+     * apex: the legacy redirects, the hub's own pages, the 404. Letting any of
+     * it see `audit.bbanetwork.org` would answer a paying visitor with a
+     * different business. A bridged hostname is not the hub under another
+     * name; it is a separate site this Worker happens to serve.
+     *
+     * See the `upstream` note in src/businesses.ts for why this exists and for
+     * the single line that removes it.
+     */
+    const bridge = bridgeFor(url.hostname);
+    if (bridge?.upstream) {
+      return serveUpstream(bridge.upstream, url, request);
+    }
 
     /**
      * Run the check now, instead of waiting for 07:20 UTC.

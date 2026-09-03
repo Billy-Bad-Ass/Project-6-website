@@ -19,7 +19,7 @@ import {
   renderSitemap,
   esc,
 } from '../src/render';
-import { PUBLIC_BUSINESSES, BUSINESSES } from '../src/businesses';
+import { PUBLIC_BUSINESSES, BUSINESSES, destination, type Business } from '../src/businesses';
 import { STYLES } from '../src/styles';
 
 describe('the stylesheet', () => {
@@ -369,10 +369,41 @@ describe('links to business hosts', () => {
 
   const unreachable = BUSINESSES.filter((b) => b.status !== 'live');
 
-  it('has at least one unreachable business, or these tests prove nothing', () => {
-    // If every business goes live this suite silently stops testing anything.
-    // Better to fail loudly and have someone delete it deliberately.
-    expect(unreachable.length).toBeGreaterThan(0);
+  /**
+   * This suite used to open with `expect(unreachable.length).toBeGreaterThan(0)`
+   * and the note: *"If every business goes live this suite silently stops
+   * testing anything. Better to fail loudly and have someone delete it
+   * deliberately."*
+   *
+   * On 2026-09-03 every business went live, and it failed loudly exactly as
+   * intended. This is the deliberate handling it asked for — not a deletion.
+   *
+   * The parameterised cases below now cover nothing, because there is nothing
+   * to cover: no business is unreachable, so no page can link one. They are
+   * kept rather than removed, because they re-arm on their own the day a
+   * business is added — and a new business is `building` on the day it lands.
+   *
+   * What replaces the guard is the assertion underneath it, which does not
+   * depend on the register's mood: the rule itself, checked against a business
+   * that is not live, whether or not one exists today.
+   */
+  it('does not offer a destination for a business that is not live', () => {
+    const pending: Business = {
+      id: 'fixture',
+      host: 'fixture.example.org',
+      name: 'Fixture',
+      tagline: '',
+      blurb: '',
+      status: 'building',
+      revenueModel: 'internal',
+      repo: 'Billy-Bad-Ass/fixture',
+      portfolioSlug: 'project-0',
+      highlights: [],
+    };
+
+    expect(destination(pending)).toBeNull();
+    expect(destination({ ...pending, status: 'planned' })).toBeNull();
+    expect(destination({ ...pending, status: 'live' })).toBe('https://fixture.example.org/');
   });
 
   for (const [name, html] of pages) {
