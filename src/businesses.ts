@@ -20,6 +20,7 @@
 export type RevenueModel =
   | 'stripe-checkout' // self-serve — Stripe Checkout, instant delivery
   | 'stripe-payment-link' // self-serve — a hosted Payment Link, delivery by hand
+  | 'enquiry' // not self-serve — an enquiry form, then a scope, then a quote
   | 'internal'; // not for sale; internal tooling
 
 export type Status =
@@ -176,6 +177,62 @@ export const BUSINESSES: Business[] = [
       'Plain English — no jargon, no dashboard to learn',
       'Fixes you can hand straight to a developer',
       'One working day',
+    ],
+  },
+  {
+    id: 'production',
+    host: `production.${APEX}`,
+    name: 'BBA Production',
+    tagline:
+      'Working software you own outright \u2014 built here, then handed over with the keys.',
+    blurb:
+      'Pick something already built and running, name the parts to change to your business, and ' +
+      'the whole thing becomes yours: your repository, your content, your domain, your accounts. ' +
+      'Websites are sold the same way, using ours as the reference.',
+    /**
+     * `building`, and the distinction is the entire point of this field.
+     *
+     * The site itself is finished and answering \u2014 it is a Worker of our own
+     * (`bba-production-form`, built in `Billy-Bad-Ass/Code` under
+     * `bba-production/form/`) and it has been serving the catalog and taking
+     * enquiries into D1 since 2026-09-03. What does not exist yet is
+     * `production.bbanetwork.org`: the hostname has not been attached to that
+     * Worker, so a card linking here would be a dead link on the hub's front
+     * page.
+     *
+     * So this is `building` for the reason the register was built to express:
+     * the *host* is not reachable, whatever the state of the thing behind it.
+     * Flip it to `live` when the custom domain is attached and answering \u2014
+     * `linkWarden` reports the drift the same day, because a `building` host
+     * that answers `200` is a finding in its own right. See docs/DOMAINS.md,
+     * "Attaching a domain to a Worker"; it is four taps and no deploy.
+     */
+    status: 'building',
+    revenueModel: 'enquiry',
+    repo: 'Billy-Bad-Ass/Code',
+    /**
+     * Not `project-N`. The numbered slugs match the numbered repositories, and
+     * BBA Production does not have one \u2014 it is a business that lives inside
+     * `Code`, and every number up to 6 is already taken by a repo it is not.
+     * Inventing one would put a name in Project 4's portfolio that points at
+     * the wrong thing.
+     */
+    portfolioSlug: 'bba-production',
+    /**
+     * Deliberately not an amount, and not "from" an amount either.
+     *
+     * Every other card can name a price because it sells a fixed thing. This
+     * sells an adjustment to a build, and the size of the adjustment is the
+     * whole variable \u2014 quoting before it is scoped is how "minor changes"
+     * quietly becomes a rewrite that was priced as a rename. The rule is in
+     * `Code/CLAUDE.md`; this line is what it looks like on a card.
+     */
+    priceHint: 'Quoted per project',
+    highlights: [
+      'A clean repository, yours to keep',
+      'Your branding, your content, your domain',
+      'Setup instructions written for a non-developer',
+      'One round of fixes after handover',
     ],
   },
   {

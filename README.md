@@ -7,12 +7,19 @@ right one, and keeps every URL the store used to own working.
 bbanetwork.org            this repo      the hub — names the businesses
 ├── guides.               Project 2      printable reference guides
 ├── audit.                Project 1      Website Health Check
+├── production.           BBA Production software built here, sold as a copy you own
 └── heartbeat.            Project 4      internal dashboard, behind Access
 ```
 
 Each business deploys itself, from its own repository, onto its own Worker. This
 repo does not build any of them — it points at them, and it is the only thing
 that knows the whole set exists.
+
+`production.` is the one that does not follow the repo-per-business pattern:
+BBA Production is a business inside `Billy-Bad-Ass/Code`, and its site is the
+`bba-production-form` Worker built from `bba-production/form/` there. It still
+gets its own hostname, for the same reason as every other one — a business that
+lives at somebody else's address is not a business.
 
 ## The one thing to understand first
 

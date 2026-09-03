@@ -276,6 +276,40 @@ guard probes the destination for exactly that reason.
 Done. The four taps are below, and they are the same four for any host — `www.`
 included.
 
+### 5. Point `production.` at the BBA Production site — **outstanding**
+
+This is the only open item in this file, and it is the four taps below with two
+values changed.
+
+BBA Production's site is finished and answering. It is its own Worker —
+`bba-production-form`, built from `bba-production/form/` in
+`Billy-Bad-Ass/Code` — and it has been serving the catalog and writing
+enquiries to the `bba-production` D1 database since 2026-09-03. What it does
+not have is a hostname on this zone, so the hub renders it as `building` and
+the card does not link anywhere.
+
+1. Cloudflare → **Workers & Pages** → **bba-production-form**
+2. **Settings** → **Domains & Routes** → **Add** → **Custom domain**
+3. Enter `production.bbanetwork.org`
+4. **Add domain**
+
+Attach it to **`bba-production-form`, not to this hub.** There is no reason to
+bridge it: the site is already a Worker on this account and a Worker can own a
+custom domain directly. The `audit.` bridge exists only because Project 1's
+site is published to GitHub Pages and could not take the hostname — see *The
+audit bridge* at the end of this file, and do not copy the pattern where it is
+not needed.
+
+Then flip the register: `status: 'live'` on the `production` entry in
+`src/businesses.ts`, and update `contact.formUrl` in
+`Code/bba-production/catalog.json` to the new address.
+
+Nothing here breaks if the flip is forgotten, but it will be noticed rather
+than silently wrong: `link-warden` checks drift in both directions, so a
+`building` host that answers `200` is reported as a finding the same day. That
+check exists because `guides.` sat marked `building` for five days while the
+store was open — see *The register went stale on `guides.`* above.
+
 ## Attaching a domain to a Worker
 
 Four taps, in the browser. No token permissions and no config change — which
@@ -352,8 +386,11 @@ table as one input and a probe as the answer.*
 | `audit.bbanetwork.org` | `200` | this hub, bridged to Project 1's site |
 | `guides.bbanetwork.org` | `200` | Project 2's store |
 | `heartbeat.bbanetwork.org` | `302` → Access login | Project 4, locked as intended |
+| `production.bbanetwork.org` | — | **not attached yet** — see step 5 above |
 
-Every host in the zone now answers. That has never been true before.
+Every host in the zone that exists answers. `production.` was added to the
+register on 2026-09-03 and is the one host in this table that has never been
+pointed at anything; the row is here so the gap is visible rather than absent.
 
 `redirect-guard` asserts all of it from a runner, including `www` — which
 nothing checked until today, on the reasoning that there was nothing there to

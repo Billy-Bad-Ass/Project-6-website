@@ -177,9 +177,50 @@ export function auditArt(): string {
 </svg>`;
 }
 
+/**
+ * The production business: a finished build, copied, with your name on it.
+ *
+ * Three app frames stacked \u2014 offset rather than fanned, because the guides
+ * card already owns rotation and rotation means paper. Software copies square.
+ *
+ * The front one is the only one with anything in it, and the one blue element
+ * inside it is the nameplate: this is the same build the other two are, with
+ * the brand swapped. That is the product in one shape. The terminator sits
+ * where it does on the guides card, which is the mark saying the signal landed
+ * \u2014 here, that the thing was handed over.
+ */
+export function productionArt(): string {
+  // Three frames, each 10 down and 10 right of the last, so the stack's
+  // bounding box lands centred in the 300x150 band the same way the other two
+  // artworks do. The solid one is the third, which puts the subject slightly
+  // below and right of centre and gives the stack its depth.
+  const W = 132;
+  const H = 90;
+  const ghost = (x: number, y: number, opacity: string) =>
+    `<g opacity="${opacity}"><rect x="${x}" y="${y}" width="${W}" height="${H}" rx="7" ` +
+    `fill="none" stroke="currentColor" stroke-width="1.6"/>` +
+    `<line x1="${x}" y1="${y + 22}" x2="${x + W}" y2="${y + 22}" ` +
+    `stroke="currentColor" stroke-width="1.4"/></g>`;
+
+  return `<svg class="card-art" viewBox="0 0 300 150" fill="currentColor" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  ${ghost(74, 20, '.24')}
+  ${ghost(84, 30, '.46')}
+  <g>
+    <rect x="94" y="40" width="${W}" height="${H}" rx="7" fill="none" stroke="currentColor" stroke-width="1.9" opacity=".9"/>
+    <line x1="94" y1="62" x2="${94 + W}" y2="62" stroke="currentColor" stroke-width="1.5" opacity=".45"/>
+    <!-- The nameplate. The one thing that changes, in the one colour that
+         means "this is the accent". -->
+    <rect x="106" y="47" width="48" height="7" rx="3.5" fill="${BLUE}" opacity=".9"/>
+    ${textLines(106, 76, [96, 72], 12, 0.3)}
+    <rect x="106" y="108" width="9" height="9" rx="2" fill="${BLUE}" opacity=".9"/>
+  </g>
+</svg>`;
+}
+
 export const CARD_ART: Record<string, () => string> = {
   guides: guidesArt,
   audit: auditArt,
+  production: productionArt,
 };
 
 /**

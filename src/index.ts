@@ -478,11 +478,11 @@ export default {
       /**
        * The design system, for the other subdomains.
        *
-       * `guides.` and `audit.` are built in different repositories by different
-       * sessions. The only way three sites stay looking like one network is a
-       * single stylesheet they all link — a copy diverges the first time
-       * somebody nudges a colour, and then the network looks like three
-       * unrelated products that happen to share a logo.
+       * `guides.`, `audit.` and `production.` are built in different
+       * repositories by different sessions. The only way four sites stay
+       * looking like one network is a single stylesheet they all link — a copy
+       * diverges the first time somebody nudges a colour, and then the network
+       * looks like four unrelated products that happen to share a logo.
        *
        * Versioned in the path rather than by a query string so a future
        * breaking change can ship as `/brand/v2.css` while v1 keeps serving the
