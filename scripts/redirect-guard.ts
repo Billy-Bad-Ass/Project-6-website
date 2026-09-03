@@ -87,7 +87,14 @@ console.log(`redirect-guard: ${await reportRun(env, {
  * is the evidence, and the verdict is only what the register makes of it.
  */
 console.log('');
-const hosts = await linkWarden(fetch, undefined, false);
+// SMOKE TEST ONLY — never merged. A host that does not exist, so the alarm
+// path can be proved end to end without touching the register or the site.
+const { BUSINESSES } = await import('../src/businesses');
+const hosts = await linkWarden(fetch, [...BUSINESSES, {
+  id: 'smoketest', host: 'this-host-does-not-exist.bbanetwork.org', name: 'Smoke Test',
+  tagline: '', blurb: '', status: 'live' as const, revenueModel: 'internal' as const,
+  repo: 'Billy-Bad-Ass/web-6', portfolioSlug: 'project-0', highlights: [],
+}], false);
 for (const line of hosts.log) console.log(`  ${line}`);
 
 /**
