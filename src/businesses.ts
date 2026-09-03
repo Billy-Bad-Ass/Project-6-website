@@ -190,24 +190,27 @@ export const BUSINESSES: Business[] = [
       'the whole thing becomes yours: your repository, your content, your domain, your accounts. ' +
       'Websites are sold the same way, using ours as the reference.',
     /**
-     * `building`, and the distinction is the entire point of this field.
+     * `live`, and the word was earned before it was written.
      *
-     * The site itself is finished and answering \u2014 it is a Worker of our own
-     * (`bba-production-form`, built in `Billy-Bad-Ass/Code` under
-     * `bba-production/form/`) and it has been serving the catalog and taking
-     * enquiries into D1 since 2026-09-03. What does not exist yet is
-     * `production.bbanetwork.org`: the hostname has not been attached to that
-     * Worker, so a card linking here would be a dead link on the hub's front
-     * page.
+     * The hostname was attached to `bba-production-form` on 2026-09-03 and
+     * probed from a GitHub runner at 18:59 UTC — 2:59 PM ET — before this line
+     * changed. Probed for *content*, not status, because a `200` alone has
+     * already lied to this repository once: `audit.bbanetwork.org` returned
+     * `200` for five days in August while serving the hub's own homepage.
      *
-     * So this is `building` for the reason the register was built to express:
-     * the *host* is not reachable, whatever the state of the thing behind it.
-     * Flip it to `live` when the custom domain is attached and answering \u2014
-     * `linkWarden` reports the drift the same day, because a `building` host
-     * that answers `200` is a finding in its own right. See docs/DOMAINS.md,
-     * "Attaching a domain to a Worker"; it is four taps and no deploy.
+     *     production (production.bbanetwork.org, building) → 200
+     *     production (production.bbanetwork.org) → 200 — BBA Production — We build it. You own it.
+     *
+     * The second line is the one that matters. That is BBA Production's own
+     * page title, so the hostname is serving the business this entry claims it
+     * is, and not the hub, and not a placeholder.
+     *
+     * The site is the `bba-production-form` Worker, built from
+     * `bba-production/form/` in `Billy-Bad-Ass/Code`. Not bridged: a Worker on
+     * this account owns a custom domain directly, so there is nothing here to
+     * dismantle later.
      */
-    status: 'building',
+    status: 'live',
     revenueModel: 'enquiry',
     repo: 'Billy-Bad-Ass/Code',
     /**

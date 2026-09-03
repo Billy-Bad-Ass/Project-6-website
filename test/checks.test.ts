@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { linkWarden, redirectGuard, apexIdentity, STORE, type Fetcher } from '../src/checks';
+import { linkWarden, redirectGuard, apexIdentity, hostIdentities, STORE, type Fetcher } from '../src/checks';
 import { LEGACY_RULES } from '../src/redirects';
 import { BRIDGED, BUSINESSES, type Business } from '../src/businesses';
 
@@ -260,6 +260,34 @@ describe('linkWarden', () => {
   });
 
   /**
+   * The same host, from a runner, which is somewhere else and can see it.
+   *
+   * The skip is a workaround for where the Worker runs, not a statement that
+   * the host is unknowable — and for a fortnight the difference was lost: the
+   * skip's own note said `redirect-guard` covered these from outside while
+   * `redirect-guard` probed only the apex, so `audit.` was checked by nothing.
+   *
+   * Both directions are asserted, because a probe that quietly did nothing
+   * would pass a test that only checked the happy answer.
+   */
+  it('probes a bridged host when the caller is outside this Worker', async () => {
+    const bridged: Business = {
+      ...pendingFixture,
+      status: 'live',
+      upstream: 'https://example.org/somewhere/',
+    };
+
+    const up = await linkWarden(stub({ [`https://${bridged.host}/`]: { status: 200 } }), [bridged], false);
+    expect(up.ok).toBe(true);
+    expect(up.log.join(' ')).not.toContain('this Worker serves it');
+    expect(up.log.join(' ')).toContain(`${bridged.host}, live) \u2192 200`);
+
+    const down = await linkWarden(stub({ [`https://${bridged.host}/`]: null }), [bridged], false);
+    expect(down.ok).toBe(false);
+    expect(down.problems.join(' ')).toContain('marked live in the register');
+  });
+
+  /**
    * Every business is probed now, whatever its status. The old warden logged
    * only the `live` ones, so a `building` business was absent from the run log
    * as well as unchecked — there was nothing for a human to notice either.
@@ -269,6 +297,67 @@ describe('linkWarden', () => {
     for (const business of BUSINESSES) {
       expect(result.log.join(' ')).toContain(business.host);
     }
+  });
+});
+
+describe('hostIdentities', () => {
+  /**
+   * A stub that serves HTML rather than JSON.
+   *
+   * The shared `stub` above runs every body through `JSON.stringify`, which is
+   * right for the health endpoint it was built for and wrong here — this
+   * function's whole job is reading markup a browser would get.
+   */
+  const serving = (html: string | null): Fetcher =>
+    async () => {
+      if (html === null) throw new TypeError('fetch failed');
+      return new Response(html, { status: 200, headers: { 'content-type': 'text/html' } });
+    };
+
+  const page = (title: string) =>
+    `<!doctype html><html><head><title>${title}</title></head><body></body></html>`;
+
+  const one: Business = {
+    id: 'one',
+    host: 'one.example.org',
+    name: 'One',
+    tagline: '',
+    blurb: '',
+    status: 'live',
+    revenueModel: 'internal',
+    repo: 'Billy-Bad-Ass/one',
+    portfolioSlug: 'project-0',
+    highlights: [],
+  };
+
+  it('reads back the title of the page each host actually served', async () => {
+    const lines = await hostIdentities(serving(page('The Right Site')), [one]);
+    expect(lines[0]).toContain('one.example.org');
+    expect(lines[0]).toContain('The Right Site');
+  });
+
+  /**
+   * The failure this function exists for: every status check passes and the
+   * hostname is serving somebody else's site.
+   *
+   * Not hypothetical. `audit.bbanetwork.org` answered `200` with the hub's own
+   * homepage for five days in August — a business unreachable to a customer,
+   * through a check that was green every morning, because nothing in this
+   * repository had ever read the page.
+   */
+  it('shows a host serving the wrong site, which a status check cannot', async () => {
+    const lines = await hostIdentities(serving(page('BBA Network — the hub')), [one]);
+    expect(lines[0]).toContain('BBA Network — the hub');
+  });
+
+  it('says so rather than throwing when a host is silent or titleless', async () => {
+    expect((await hostIdentities(serving(null), [one]))[0]).toContain('did not answer');
+    expect((await hostIdentities(serving('<p>hi</p>'), [one]))[0]).toContain('no title');
+  });
+
+  it('never reports a title long enough to bury the rest of the run log', async () => {
+    const lines = await hostIdentities(serving(page('x'.repeat(400))), [one]);
+    expect(lines[0]!.length).toBeLessThan(160);
   });
 });
 

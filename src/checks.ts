@@ -263,6 +263,20 @@ export async function linkWarden(
    * Coverage that evaporates when the data changes is not coverage.
    */
   businesses: readonly Business[] = BUSINESSES,
+  /**
+   * Whether to skip the hosts this Worker serves.
+   *
+   * `true` — the default, and correct for every caller inside the Worker, for
+   * the reason spelled out below: Cloudflare answers a Worker's subrequest to
+   * its own route with `522`, so probing a bridged host from in there reports
+   * a daily outage that is not happening.
+   *
+   * `false` for scripts/redirect-guard.ts, which runs on a GitHub runner. A
+   * runner is genuinely somewhere else, so it can probe every host including
+   * the bridged ones — and it is the only place an answer about DNS means
+   * anything at all.
+   */
+  skipBridged = true,
 ): Promise<CheckResult> {
   const problems: string[] = [];
   const log: string[] = [];
@@ -281,8 +295,15 @@ export async function linkWarden(
      * Skipped, not silently: the run log says which host and why, and
      * `redirect-guard` covers these from outside — which is the only place the
      * answer means anything.
+     *
+     * That last clause was aspirational when it was written. `redirect-guard`
+     * probed the apex and nothing else, so `audit.bbanetwork.org` was skipped
+     * here and checked nowhere — the one bridged host in the register was the
+     * one host in the network with no automated check on it at all. The
+     * runner now runs this same function with `skipBridged` off, which is what
+     * the sentence always claimed.
      */
-    if (business.upstream) {
+    if (business.upstream && skipBridged) {
       log.push(
         `${business.id} (${business.host}, ${business.status}) → skipped, this Worker serves it; ` +
           `redirect-guard checks it from a runner`,
@@ -313,6 +334,65 @@ export async function linkWarden(
   }
 
   return { agent: 'link-warden', ok: problems.length === 0, problems, log };
+}
+
+/**
+ * What each business host is actually serving, reported and never asserted.
+ *
+ * `linkWarden` asks whether a host answers. This asks what it answered *with*,
+ * and the difference has already cost this repository once: on 2026-08-29
+ * `audit.bbanetwork.org` returned `200` to every probe while serving the hub's
+ * own homepage. Every status check passed. The business behind that hostname
+ * was unreachable to a customer for five days, and nothing in this repository
+ * could have noticed, because nothing here had ever read the page.
+ *
+ * So the title of each page is recorded on every run. It is not asserted — a
+ * title is copy, and copy changes for good reasons that should not fail a
+ * check at three in the morning. It is written down so that a human flipping a
+ * register entry to `live`, or reading back a run that looked fine, can see
+ * which site actually answered rather than only that something did.
+ *
+ * Runner-only, like `apexIdentity` and for the same reason: from inside the
+ * Worker, a bridged host answers `522` and this would record the outage that
+ * is not happening.
+ */
+export async function hostIdentities(
+  fetcher: Fetcher,
+  businesses: readonly Business[] = BUSINESSES,
+): Promise<string[]> {
+  const lines: string[] = [];
+
+  for (const business of businesses) {
+    lines.push(`${business.id} (${business.host}) → ${await pageTitle(fetcher, `https://${business.host}/`)}`);
+  }
+
+  return lines;
+}
+
+/**
+ * The `<title>` of a page, or a plain statement of why there isn't one.
+ *
+ * Redirects are followed here, unlike everywhere else in this file: a hostname
+ * behind Cloudflare Access answers `302` to a login page, and "what is serving
+ * this host" is better answered by the page a visitor lands on than by the
+ * hop that got them there.
+ */
+async function pageTitle(fetcher: Fetcher, url: string): Promise<string> {
+  try {
+    const response = await fetcher(url);
+    if (!response.ok) return `answered ${response.status}, no page read`;
+
+    const body = await response.text();
+    const match = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(body);
+    if (!match) return `${response.status}, page has no title`;
+
+    // Collapsed and clipped: a title is for a human reading a run log, and one
+    // that wraps across four lines of console output is worse than a short one.
+    const title = match[1]!.replace(/\s+/g, ' ').trim();
+    return `${response.status} — ${title.length > 90 ? `${title.slice(0, 89)}…` : title}`;
+  } catch {
+    return 'did not answer';
+  }
 }
 
 /**

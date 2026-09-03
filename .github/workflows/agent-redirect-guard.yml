@@ -49,7 +49,7 @@ jobs:
       # The script reports its own run through src/report.ts — the same module
       # the Worker uses — so there is no second implementation of reporting
       # here either. It exits 1 when the check fails, after reporting.
-      - name: Probe the apex from outside it
+      - name: Probe the apex and every business host from outside them
         id: guard
         run: |
           set -o pipefail
