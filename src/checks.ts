@@ -142,6 +142,30 @@ export async function redirectGuard(
   }
 
   /**
+   * `www`, which redirects here.
+   *
+   * Nothing checked it until 2026-09-03, because until 2026-09-03 there was
+   * nothing to check: docs/DOMAINS.md recorded it as having no DNS record at
+   * all, and it was the last open gap in that file's running order. It was
+   * attached the same day and answers `301` to the apex.
+   *
+   * Deliberately tolerant of *how* it answers. Either shape is correct and
+   * both are written down in docs/DOMAINS.md: a redirect to the apex, or the
+   * hub serving it directly — safe because every page declares its canonical
+   * URL on the apex regardless of the host it was served from. What is not
+   * correct is silence, which is what a lapsed DNS record looks like, and
+   * which nobody would notice on a hostname half of visitors type by habit.
+   */
+  const wwwProbe = await probe(fetcher, `https://www.${APEX}/`);
+  log.push(`www.${APEX} → ${wwwProbe.status}${wwwProbe.location ? ` → ${wwwProbe.location}` : ''}`);
+  if (wwwProbe.status < 200 || wwwProbe.status >= 400) {
+    problems.push(
+      `www.${APEX} answered ${wwwProbe.status}. It is the hostname a visitor types from ` +
+        `habit, so it failing is a front door nobody is watching.`,
+    );
+  }
+
+  /**
    * The hostnames the hub serves for another business.
    *
    * `linkWarden` cannot check these — it runs inside the Worker that answers

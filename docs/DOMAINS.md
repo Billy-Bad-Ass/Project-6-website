@@ -10,9 +10,9 @@ in the dashboard, and — read this part — what will break if the order is wro
 | --- | --- | --- | --- |
 | `bbanetwork.org` | This hub | Project 6 | The brand. Names the businesses and sends people to the right one. |
 | `guides.bbanetwork.org` | The store | Project 2 | Printable reference guides. Its own checkout, its own support address. |
-| `audit.bbanetwork.org` | Website Health Check | Project 1 | The audit service. Project 1 already builds this sales site — see below. |
+| `audit.bbanetwork.org` | Website Health Check | Project 1 | The audit service. Project 1 builds the sales site; **this hub currently serves it** on that hostname as a bridge — see "The audit bridge" below. |
 | `heartbeat.bbanetwork.org` | Heartbeat | Project 4 | Internal, behind Cloudflare Access. Reserved; this repo does not touch it. |
-| `www.bbanetwork.org` | Nothing yet | — | No DNS record exists. Either attachment works: a Worker custom domain on `bba-network-hub`, or a proxied `CNAME` to the apex plus a redirect rule. Serving it from the hub directly is safe because every page declares `<link rel="canonical">` on the apex regardless of the host it was served from, so the two hosts do not split search authority. |
+| `www.bbanetwork.org` | The apex | — | Attached 2026-09-03; answers `301` to the apex. Serving it from the hub directly would also have been safe, because every page declares `<link rel="canonical">` on the apex regardless of the host it was served from, so the two hosts cannot split search authority. `redirect-guard` accepts either shape and only fails on silence. |
 
 ### This is a change from Project 4's plan
 
@@ -45,8 +45,14 @@ this repo assumes otherwise.
 ### Project 1's site is not built here
 
 Project 1 builds its own audit sales site (`audit/src/pipeline/build-web.ts`,
-driven by a `STRIPE_PAYMENT_LINK`). `audit.bbanetwork.org` should point at
-**that** Worker. This repo links to it and does not reimplement it.
+driven by a `STRIPE_PAYMENT_LINK`). This repo does not reimplement it, and the
+bridge does not either — it fetches what Project 1 publishes and passes it
+through unchanged.
+
+Where that site is *published* turned out to be the whole problem, and it is
+worth stating plainly because the obvious reading of this section is wrong:
+Project 1 publishes to GitHub Pages, not to a Worker. There is no Worker to
+point `audit.bbanetwork.org` at. See "The audit bridge" below.
 
 ## The apex has moved
 
@@ -66,8 +72,9 @@ these are no longer preparations, they are open gaps on a live domain.
 | 2. Email Routing for `support@` | Enabled on the zone. Routes still to be confirmed — see below. |
 | 3. `guides.` points at the store | Done. Probed reachable 2026-08-24 12:04, and `200` again 2026-08-29 04:59 UTC — 00:59 ET. The register only caught up on the 29th; see below. |
 | 4. Apex attached to this hub | **Done.** |
-| 5. `www.` attached to this hub | **No. There is no DNS record for it.** |
-| 6. `heartbeat.` attached, behind Access | Done. Probed `302` 2026-08-24 12:11. |
+| 5. `www.` attached to this hub | **Done, 2026-09-03.** Answers `301` to the apex. Probed 05:54 UTC — 01:54 ET. |
+| 6. `heartbeat.` attached, behind Access | Done. Probed `302` 2026-08-24 12:11, and again 2026-09-03. |
+| 7. `audit.` reachable | **Done, 2026-09-03.** Served by this hub as a bridge — see below. |
 
 ### What the zone actually contains
 
@@ -87,15 +94,15 @@ reachable at 12:04 the same day, so a Worker custom domain can serve without
 appearing where you expect it to. Treat the records table as one input and a
 probe as the answer.
 
-`audit.` is genuinely absent, and genuinely fine: it is `building` in the
-register, and the hub renders a `building` business as a disabled card rather
-than a link, which is exactly what that status is for.
+`audit.` was genuinely absent, and genuinely fine, for as long as the register
+said `building`. That changed on 2026-09-03 — see "The audit bridge" below.
 
-Still true on 2026-08-29. A probe from a GitHub runner at 04:59 UTC — 00:59 ET
-— read `audit.bbanetwork.org → 0`: nothing answers at all. **This is the one
-thing on this page that Claude cannot finish.** Attaching the host to Project
-1's Worker is a Cloudflare dashboard action and the deploy token does not have
-the permission, so `audit` stays `building` until a human does it.
+On 2026-08-29 a runner read `audit.bbanetwork.org → 0`: nothing at all. That
+line stood as *"the one thing on this page that Claude cannot finish"* until
+2026-09-03, when the hostname was attached and the hub began serving Project
+1's site on it. The sentence was true when written and is kept because the
+shape of the answer changed rather than the constraint: attaching a hostname is
+still a dashboard action no token here can perform.
 
 ### The register went stale on `guides.`, for five days
 
@@ -329,3 +336,49 @@ two.
 - Run the redirect guard by hand once — Actions → **Agent · Redirect guard** →
   Run workflow — and confirm it passes against the live apex before you walk
   away.
+
+
+## The whole zone, as measured on 2026-09-03
+
+Probed from a GitHub runner at 05:54 UTC — 01:54 ET. Not read off the
+dashboard: this file has been wrong twice by reading records instead of asking
+hosts, and the rule that came out of it is still the rule. *Treat the records
+table as one input and a probe as the answer.*
+
+| Host | Answers | Serving |
+| --- | --- | --- |
+| `bbanetwork.org` | `200` | this hub |
+| `www.bbanetwork.org` | `301` → apex | — |
+| `audit.bbanetwork.org` | `200` | this hub, bridged to Project 1's site |
+| `guides.bbanetwork.org` | `200` | Project 2's store |
+| `heartbeat.bbanetwork.org` | `302` → Access login | Project 4, locked as intended |
+
+Every host in the zone now answers. That has never been true before.
+
+`redirect-guard` asserts all of it from a runner, including `www` — which
+nothing checked until today, on the reasoning that there was nothing there to
+check. A hostname half your visitors type from habit is a poor thing to leave
+unwatched once it exists.
+
+## The audit bridge
+
+`audit.bbanetwork.org` is attached to **`bba-network-hub`**, not to Project 1.
+The hub fetches Project 1's published sales site and serves it on that
+hostname. `src/businesses.ts` carries the reasoning on the `upstream` field;
+the short version is that the two routes that would have been cleaner were
+both shut:
+
+| Route | Why not |
+| --- | --- |
+| Cloudflare Pages | needs an API token only an account holder can mint |
+| GitHub Pages custom domain | maps to the repository root, which serves a different product |
+
+**It is a bridge and it is meant to be dismantled.** When a Cloudflare Pages
+project owns the hostname, delete the `upstream` field: the router stops
+matching, and nothing else moves.
+
+One trap it introduced, closed the same day. A Worker cannot probe a hostname
+it serves — Cloudflare answers its own route with `522` — so `link-warden`,
+which runs on this Worker, skips bridged hosts and says so in its log.
+`redirect-guard` asserts them from a runner instead. Same rule as the apex,
+one more hostname.

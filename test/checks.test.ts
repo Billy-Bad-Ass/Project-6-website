@@ -303,6 +303,47 @@ describe('apexIdentity', () => {
  * live" against a card that said building. An alarm that is wrong daily is the
  * one people learn to scroll past, and then the real one is missed too.
  */
+describe('redirectGuard and www', () => {
+  function rules() {
+    const routes: Record<string, { status: number; location?: string } | null> = {};
+    for (const rule of LEGACY_RULES) routes[`${APEX_BASE}${rule.prefix}/probe`] = expectedFor(rule);
+    for (const b of BRIDGED) routes[`https://${b.host}/`] = b.status === 'live' ? { status: 200 } : null;
+    return routes;
+  }
+
+  it('accepts the redirect to the apex that is there today', async () => {
+    const routes = rules();
+    routes['https://www.bbanetwork.org/'] = { status: 301, location: 'https://bbanetwork.org/' };
+
+    const result = await redirectGuard(stub(routes), APEX_BASE);
+    expect(result.ok).toBe(true);
+    expect(result.log.join(' ')).toContain('www.bbanetwork.org → 301');
+  });
+
+  /**
+   * docs/DOMAINS.md records both shapes as correct — a redirect, or the hub
+   * serving www directly, which is safe because every page declares its
+   * canonical URL on the apex. A check that insisted on the redirect would
+   * fail the day somebody chose the other one.
+   */
+  it('accepts the hub serving www directly', async () => {
+    const routes = rules();
+    routes['https://www.bbanetwork.org/'] = { status: 200 };
+
+    const result = await redirectGuard(stub(routes), APEX_BASE);
+    expect(result.ok).toBe(true);
+  });
+
+  it('fails when www stops answering', async () => {
+    const routes = rules();
+    routes['https://www.bbanetwork.org/'] = null;
+
+    const result = await redirectGuard(stub(routes), APEX_BASE);
+    expect(result.ok).toBe(false);
+    expect(result.problems.join(' ')).toContain('front door nobody is watching');
+  });
+});
+
 describe('redirectGuard and a bridged host', () => {
   const base: Business = {
     id: 'bridged',
