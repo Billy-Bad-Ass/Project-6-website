@@ -61,6 +61,29 @@ export interface Business {
   highlights: string[];
   /** Excluded from the public hub and from the sitemap. */
   unlisted?: boolean;
+  /**
+   * A site this hub serves on the business's own hostname, by fetching it from
+   * somewhere else. The exception to "the hub is a signpost", and it is here
+   * with its reason attached rather than buried in the router.
+   *
+   * Only `audit` uses it. Project 1's sales site is built and published — it
+   * has been live and taking Stripe payments at
+   * `billy-bad-ass.github.io/sitecheck-1/audit/` — but it is published to
+   * *GitHub* Pages, whose custom domains map to the repository root, and that
+   * root serves a different product entirely. So the one free route to
+   * `audit.bbanetwork.org` would have shown the wrong business.
+   *
+   * The intended route is Cloudflare Pages, and it needs a Cloudflare API
+   * token that only an account holder can mint. Rather than leave a finished,
+   * paid-for product unreachable at its own address while waiting on a
+   * credential, the hub — which already answers on that hostname — fetches it
+   * and serves it. The visitor sees `audit.bbanetwork.org` throughout.
+   *
+   * **This is a bridge, and it should be dismantled.** When the Cloudflare
+   * Pages project exists and owns the hostname, delete this field: the router
+   * stops matching, `destination()` is unchanged, and nothing else moves.
+   */
+  upstream?: string;
 }
 
 export const APEX = 'bbanetwork.org';
@@ -125,16 +148,20 @@ export const BUSINESSES: Business[] = [
       'detect issues, and uncover opportunities for improvement. Each review combines ' +
       'intelligent automation, technical measurements, and experienced human judgment to give ' +
       'you a clear picture of how your site is performing \u2014 and where it can be made better.',
-    // Probed in the same run, one line after `guides`: `audit.bbanetwork.org`
-    // answered `0` — nothing there at all. So this stays `building`, and it is
-    // the honest value rather than a stale one. What it is waiting on is not
-    // code in any repo: the host has to be attached to Project 1's Worker in
-    // the Cloudflare dashboard, which the deploy token cannot do. See
-    // docs/DOMAINS.md.
-    status: 'building',
+    // `live` because a customer can reach this host and pay today — which is
+    // the whole of what the word promises at the top of this file.
+    //
+    // It was `building` from 2026-08-24 to 2026-09-03, correctly: the host
+    // answered nothing at all. What changed is not the sales site, which has
+    // been finished and taking Stripe payments the whole time at
+    // billy-bad-ass.github.io/sitecheck-1/audit/. What changed is that the hub
+    // now serves it on this hostname — see `upstream` below and the note on
+    // the interface for why that route, and why it is temporary.
+    status: 'live',
     revenueModel: 'stripe-payment-link',
     repo: 'Billy-Bad-Ass/sitecheck-1',
     portfolioSlug: 'project-1',
+    upstream: 'https://billy-bad-ass.github.io/sitecheck-1/audit/',
     priceHint: '$100 one-off',
     highlights: [
       'Every issue ranked by what it costs you',
@@ -175,4 +202,21 @@ export function businessById(id: string): Business | undefined {
  */
 export function destination(business: Business): string | null {
   return business.status === 'live' ? `https://${business.host}/` : null;
+}
+
+/**
+ * The businesses this Worker answers for on their own hostname.
+ *
+ * Used by two callers that must not disagree: the router, which decides what
+ * to proxy, and `linkWarden`, which must not probe them — a Worker's
+ * subrequest to a hostname it serves is answered `522` by Cloudflare, so a
+ * warden that checked these would report a daily outage that is not happening.
+ * That trap has already cost this repository one silent fortnight; see the
+ * note above `SCHEDULE` in src/index.ts.
+ */
+export const BRIDGED = BUSINESSES.filter((b) => b.upstream);
+
+/** The bridged business serving this hostname, if any. */
+export function bridgeFor(hostname: string): Business | undefined {
+  return BRIDGED.find((b) => b.host === hostname.toLowerCase());
 }

@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import { linkWarden, redirectGuard, apexIdentity, STORE, type Fetcher } from '../src/checks';
 import { LEGACY_RULES } from '../src/redirects';
-import { BUSINESSES } from '../src/businesses';
+import { BUSINESSES, type Business } from '../src/businesses';
 
 const APEX_BASE = 'https://bbanetwork.org';
 
@@ -170,6 +170,33 @@ describe('linkWarden', () => {
   });
 
   /**
+   * The two drift cases, driven by a fixture rather than by the register.
+   *
+   * These used to reach into `BUSINESSES` for whatever happened to be
+   * `building`. That worked while the register held a mixture, and stopped
+   * working on 2026-09-03 when the last `building` business went live: the
+   * array emptied, `pending[0]` became undefined, and two tests that had been
+   * guarding a real bug started asserting nothing at all.
+   *
+   * The logic they cover has not changed and still matters — the next business
+   * added will be `building` on the day it lands. So the fixture supplies one
+   * of each status, and the coverage no longer depends on what the business is
+   * doing this week.
+   */
+  const pendingFixture: Business = {
+    id: 'fixture',
+    host: 'fixture.example.org',
+    name: 'Fixture',
+    tagline: '',
+    blurb: '',
+    status: 'building',
+    revenueModel: 'internal',
+    repo: 'Billy-Bad-Ass/fixture',
+    portfolioSlug: 'project-0',
+    highlights: [],
+  };
+
+  /**
    * The drift that actually happened, and the reason this check changed.
    *
    * `guides.` started serving on 2026-08-24. The register said `building`
@@ -178,28 +205,45 @@ describe('linkWarden', () => {
    * not being `live` — it was the one business it most needed to look at.
    */
   it('fails when a host that is not marked live is serving anyway', async () => {
-    expect(pending.length).toBeGreaterThan(0);
-    const routes = agreeing();
-    routes[`https://${pending[0]!.host}/`] = { status: 200 };
+    const routes = { [`https://${pendingFixture.host}/`]: { status: 200 } };
 
-    const result = await linkWarden(stub(routes));
+    const result = await linkWarden(stub(routes), [pendingFixture]);
     expect(result.ok).toBe(false);
-    expect(result.problems[0]).toContain(pending[0]!.host);
+    expect(result.problems[0]).toContain(pendingFixture.host);
     expect(result.problems[0]).toContain('answered 200');
   });
 
   /**
    * A `building` host that answers nothing is the honest case, not a fault.
-   * `audit.` is exactly that today — no DNS record, Project 1 still building
-   * it — and a warden that complained would cry wolf every day until nobody
-   * read it.
+   * A warden that complained about one would cry wolf every day from the
+   * moment a business is registered until the day it opens.
    */
   it('accepts a host that is not marked live answering nothing', async () => {
-    const routes = agreeing();
-    routes[`https://${pending[0]!.host}/`] = null;
+    const routes = { [`https://${pendingFixture.host}/`]: null };
 
-    const result = await linkWarden(stub(routes));
+    const result = await linkWarden(stub(routes), [pendingFixture]);
     expect(result.ok).toBe(true);
+  });
+
+  /**
+   * A bridged host is this Worker's own route, and Cloudflare answers a
+   * Worker's subrequest to its own route with `522`. Probing it from here
+   * would report a daily outage on a business that is answering fine — the
+   * same trap that made `redirect-guard` cry wolf for a fortnight.
+   */
+  it('skips a host this Worker serves, and says so in the log', async () => {
+    const bridged: Business = {
+      ...pendingFixture,
+      status: 'live',
+      upstream: 'https://example.org/somewhere/',
+    };
+    // Mapped to null: if it were probed at all, it would read as not answering
+    // and fail the check. Passing proves it was never probed.
+    const routes = { [`https://${bridged.host}/`]: null };
+
+    const result = await linkWarden(stub(routes), [bridged]);
+    expect(result.ok).toBe(true);
+    expect(result.log.join(' ')).toContain('this Worker serves it');
   });
 
   /**
