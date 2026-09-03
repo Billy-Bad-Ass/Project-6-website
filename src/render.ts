@@ -290,9 +290,20 @@ ${rule()}
       <h2>What BBA Network sells</h2>
       <p>
         ${
+          /*
+           * Neither branch counts out loud any more. This read "Both are
+           * live", which was true of two businesses and became a factual
+           * error the moment a third was added — the kind that survives
+           * because nobody re-reads the sentence they are not editing.
+           *
+           * Nor does either branch promise a checkout. Two of these sell a
+           * fixed thing and take card payment for it; BBA Production is
+           * quoted per project, and a hub promising "its own checkout" for
+           * every business is selling something one of them does not have.
+           */
           liveCount === PUBLIC_BUSINESSES.length
-            ? 'Both are live. Each has its own site, its own checkout and its own support address.'
-            : 'Each gets its own subdomain, its own checkout and its own support address. Anything not yet reachable says so here rather than sending you to a dead link.'
+            ? 'Every one of them is live. Each has its own site and its own support address.'
+            : 'Each gets its own subdomain, its own site and its own support address. Anything not yet reachable says so here rather than sending you to a dead link.'
         }
       </p>
     </div>
@@ -305,8 +316,9 @@ ${rule()}
   return layout({
     title: 'BBA Network — small products that solve one problem properly',
     description:
-      'BBA Network builds small, self-contained products: printable reference guides, and ' +
-      'plain-English website health checks. Each runs on its own domain.',
+      'BBA Network builds small, self-contained products: printable reference guides, ' +
+      'plain-English website health checks, and finished software you own outright. ' +
+      'Each runs on its own domain.',
     path: '/',
     body,
   });
@@ -430,11 +442,12 @@ export function renderLicence(): string {
       <h1>Licence &amp; refunds</h1>
       <p class="lead">
         What you can do with what you buy, and how to get your money back if it was not
-        worth it. Two businesses, two sets of terms &mdash; they sell different things.
+        worth it. Three businesses, three sets of terms &mdash; they sell different things.
       </p>
       <nav class="jump" aria-label="On this page">
         <a href="#guides">Printable guides</a>
         <a href="#audit">Website Health Check</a>
+        <a href="#production">BBA Production</a>
       </nav>
 
       <h2 id="guides">Printable guides</h2>
@@ -549,6 +562,77 @@ ${rule()}
         passed on.
       </p>
 
+    </div>
+  </div>
+</section>
+
+${rule()}
+
+<section class="section">
+  <div class="wrap">
+    <div class="prose">
+      <h2 id="production">BBA Production</h2>
+      <p class="applies">
+        Applies to a build bought from ${businessLinkById('production')}
+        &mdash; software handed over as a repository, not a licence to use ours.
+      </p>
+
+      ${permissions(
+        [
+          'Use it in your business, change it, extend it, and keep it for as long as you like.',
+          'Run it on your own domain, your own hosting and your own payment account.',
+          'Hire any developer you like to work on it. It is yours; you are not tied to us.',
+          'Sell the business it runs, with the code included.',
+        ],
+        [
+          'Resell or redistribute the build itself as a product or a template.',
+          'Deploy one build for several unrelated businesses.',
+          'Use our name, our sites, or our other clients&rsquo; work as a portfolio of your own.',
+        ],
+      )}
+
+      <h3>The scope is agreed before anything starts</h3>
+      <p>
+        You get a fixed price and a written list of exactly what is included, and nothing is
+        built until you have both. That is a protection in your direction as much as ours:
+        &ldquo;minor adjustments&rdquo; is the whole idea, and the only way it stays minor for
+        the money is if both of us can point at the same list afterwards. Anything outside it
+        gets quoted separately rather than absorbed quietly or dropped quietly.
+      </p>
+
+      <h3>Refunds</h3>
+      <p>
+        If what is handed over does not do what the agreed scope says, it gets fixed, and if it
+        cannot be fixed you get your money back. Email
+        <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. What is not a refund is a
+        change of mind about the scope after the work is done &mdash; that is new work, and it
+        gets quoted like new work.
+      </p>
+
+      <h3>After handover</h3>
+      <p>
+        One round of fixes is included, and the window is stated in writing when the work is
+        agreed rather than left vague here. After that, the repository is yours and you are
+        free to take it to anyone; further work from us is quoted per job. Nothing expires,
+        nothing phones home, and there is no subscription to cancel.
+      </p>
+
+      <h3>What arrives</h3>
+      <p>
+        The repository, with the setup written for someone who is not a developer. Every copy
+        is searched before it is sent for anything of ours left inside it &mdash; our domains,
+        our accounts, our keys. What you receive should mention your business and nobody
+        else&rsquo;s.
+      </p>
+
+      <h3>Payment and data</h3>
+      <p>
+        There is no checkout here, because there is nothing on a shelf to buy: the price
+        depends on the changes you want, so it is quoted and invoiced per project. The enquiry
+        form keeps what you send it &mdash; your name, your address, and what you asked about
+        &mdash; in our own database. It is not sold, and it is not passed to anyone.
+      </p>
+
       <p class="note-small">
         Questions about any of this before you buy:
         <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.
@@ -561,7 +645,7 @@ ${rule()}
     title: 'Licence & refunds — BBA Network',
     description:
       'What you can do with what you buy from BBA Network, and how refunds work — for the ' +
-      'printable guides and for the Website Health Check.',
+      'printable guides, the Website Health Check, and a build from BBA Production.',
     path: '/licence',
     body,
   });

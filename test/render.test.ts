@@ -21,6 +21,7 @@ import {
 } from '../src/render';
 import { PUBLIC_BUSINESSES, BUSINESSES, destination, type Business } from '../src/businesses';
 import { STYLES } from '../src/styles';
+import { CARD_ART } from '../src/motifs';
 
 describe('the stylesheet', () => {
   it('is whole — not truncated by a stray backtick in a comment', () => {
@@ -63,6 +64,25 @@ describe('the home page', () => {
         expect(html).not.toContain(`href="/go/${business.id}"`);
       }
     }
+  });
+
+  /**
+   * `card()` renders without artwork rather than breaking, which is the right
+   * behaviour for a half-finished entry and the wrong thing to ship. A card
+   * with no band beside two that have one does not read as "this one is new",
+   * it reads as broken CSS.
+   *
+   * Keyed on the register so the omission is caught when the business is
+   * added, not when someone notices the front page looks lopsided.
+   */
+  it('draws artwork for every listed business', () => {
+    for (const business of PUBLIC_BUSINESSES) {
+      expect(CARD_ART[business.id], `no card art for "${business.id}" in src/motifs.ts`).toBeTypeOf(
+        'function',
+      );
+    }
+    const bands = html.split('class="card-art-band"').length - 1;
+    expect(bands).toBe(PUBLIC_BUSINESSES.length);
   });
 
   it('keeps the internal dashboard off the public page', () => {
@@ -278,11 +298,35 @@ describe('the Licence page', () => {
   // whitespace the template happens to use.
   const flat = html.replace(/\s+/g, ' ');
 
-  it('covers both businesses, not just the downloads', () => {
-    expect(html).toContain('id="guides"');
-    expect(html).toContain('id="audit"');
+  /**
+   * Named individually AND checked as a set.
+   *
+   * This used to be the four hard-coded assertions below and nothing else, and
+   * that is a test which passes forever while going quietly out of date: a
+   * third business was added to the register on 2026-09-03 and every one of
+   * those four still passed, on a page whose own opening line said "Two
+   * businesses, two sets of terms".
+   *
+   * A visitor who buys the newest thing and comes here for the refund terms
+   * finds terms for the other two. That is the failure worth catching, and it
+   * is only catchable by asking the register how many there are.
+   */
+  it('has a section and a jump link for every listed business', () => {
+    const jump = flat.slice(flat.indexOf('<nav class="jump"'));
+    const nav = jump.slice(0, jump.indexOf('</nav>'));
+
+    for (const business of PUBLIC_BUSINESSES) {
+      expect(html, `no <h2 id="${business.id}"> on the licence page`).toContain(
+        `id="${business.id}"`,
+      );
+      expect(nav, `${business.id} missing from the jump nav`).toContain(`href="#${business.id}"`);
+    }
+  });
+
+  it('covers each business by name, not just the downloads', () => {
     expect(html).toContain('Printable guides');
     expect(html).toContain('Website Health Check');
+    expect(html).toContain('BBA Production');
   });
 
   it('states refund terms for each, because they differ', () => {
