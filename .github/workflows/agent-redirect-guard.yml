@@ -35,6 +35,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # `issues: write` is what lets a failure reach a person. See the last two
+    # steps: everything else this workflow does is written somewhere a human
+    # has to decide to go and look.
+    permissions:
+      contents: read
+      issues: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -99,3 +106,108 @@ jobs:
           echo "POST /api/agent-runs -> $CODE"
           head -c 300 /tmp/out
           exit 0
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Telling a human.
+      #
+      # Everything above this line records the run. Project 4's console is
+      # private and behind Cloudflare Access; a red workflow run is visible to
+      # whoever opens the Actions tab. Both are places somebody has to decide
+      # to go and look, and neither of them is being *told*.
+      #
+      # That gap was named plainly on 2026-09-03: a business could go down,
+      # this check could catch it within the hour, and the owner would still
+      # hear about it from a customer. GitHub emails the owner of a repository
+      # when an issue is opened on it, and that is the one channel already
+      # wired to a phone without adding a service, a key or a monthly bill.
+      #
+      # One issue, updated — not one per run. A check that files a fresh
+      # ticket every morning gets muted inside a week, and a muted alarm is
+      # worse than no alarm, because it is still believed in.
+      #
+      # The body is built with `echo` into a file rather than a heredoc: a
+      # heredoc's terminator has to sit at column zero, which inside an
+      # indented YAML block means it never terminates, and every line of the
+      # message would arrive with ten spaces of indent that turn the whole
+      # thing into a markdown code block.
+      - name: Say so, to a person, if something is unreachable
+        if: always() && steps.guard.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # The verdict lines the two checks print. If the script died before
+          # printing either there is no diagnosis to pass on — say that,
+          # rather than sending an empty alarm: "something is wrong and I
+          # cannot tell you what" is itself the thing to act on.
+          PROBLEMS=$(grep -E '^(redirect-guard|link-warden): FAILED' /tmp/guard.log 2>/dev/null \
+            | sed -E 's/^[a-z-]+: FAILED[^a-zA-Z]*/- /' || true)
+          [ -n "$PROBLEMS" ] || PROBLEMS="- The check did not finish, so nothing is known about the addresses this run. That is not the same as everything being fine."
+
+          # What each address actually served. This is the half that would
+          # have caught audit.bbanetwork.org answering 200 with the hub's own
+          # homepage for five days in August.
+          SERVED=$(grep -E '^  [a-z-]+ \([a-z0-9.-]+\) ' /tmp/guard.log 2>/dev/null || true)
+          [ -n "$SERVED" ] || SERVED="  (the check did not get far enough to read any pages)"
+
+          {
+            echo "The daily check on the BBA Network addresses found something wrong."
+            echo
+            echo "**What is wrong**"
+            echo
+            echo "$PROBLEMS"
+            echo
+            echo "**What each address served just now**"
+            echo
+            echo '```'
+            echo "$SERVED"
+            echo '```'
+            echo
+            echo "If one of these is down, a customer who goes there sees a dead page rather than a"
+            echo "business — and if it is a shop, a shop with the lights off and the sign still saying open."
+            echo
+            echo "Checked from outside the network, so this is about the address itself,"
+            echo "not about the machine doing the checking."
+            echo
+            echo "[The full run]($RUN_URL)"
+            echo
+            echo "---"
+            echo
+            echo "This closes itself the next time the check passes. While it is open, it is still broken."
+          } > /tmp/issue-body.md
+
+          # Idempotent. A missing label must never be the reason an outage
+          # goes unreported.
+          gh label create network-down --color B60205 \
+            --description "An address on the network is not answering" 2>/dev/null || true
+
+          EXISTING=$(gh issue list --repo "$REPO" --label network-down --state open \
+            --limit 1 --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            echo "Issue #$EXISTING is already open for this. Adding today's findings to it."
+            gh issue comment "$EXISTING" --repo "$REPO" --body-file /tmp/issue-body.md
+          else
+            gh issue create --repo "$REPO" --label network-down \
+              --title "A BBA Network address is not answering" --body-file /tmp/issue-body.md
+          fi
+
+      # The other half, and the half that decides whether the first one is
+      # believed. An alarm nobody ever switches off stops being an alarm.
+      - name: Close the alarm once everything answers again
+        if: always() && steps.guard.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          for N in $(gh issue list --repo "$REPO" --label network-down --state open \
+            --json number --jq '.[].number'); do
+            echo "Closing #$N — everything answered this run."
+            gh issue close "$N" --repo "$REPO" --reason completed \
+              --comment "Everything is answering again as of this run. Nothing to do. [The run]($RUN_URL)"
+          done
