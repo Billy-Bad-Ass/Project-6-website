@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import { linkWarden, redirectGuard, apexIdentity, STORE, type Fetcher } from '../src/checks';
 import { LEGACY_RULES } from '../src/redirects';
-import { BUSINESSES, type Business } from '../src/businesses';
+import { BRIDGED, BUSINESSES, type Business } from '../src/businesses';
 
 const APEX_BASE = 'https://bbanetwork.org';
 
@@ -43,10 +43,23 @@ function expectedFor(rule: (typeof LEGACY_RULES)[number]) {
   return { status: rule.status, location: `${rule.target}/probe` };
 }
 
-function allRulesPassing(): Record<string, { status: number; location?: string }> {
-  const routes: Record<string, { status: number; location?: string }> = {};
+/**
+ * Every legacy rule answering correctly, and every bridged host answering
+ * nothing.
+ *
+ * The bridged hosts have to be spelled out because the stub's default is 200
+ * for anything unnamed — and a bridged host answering 200 while its card says
+ * `building` is now a finding in its own right. Left to the default, these
+ * fixtures would describe a world where the register is behind reality, which
+ * is not what any of these tests are about.
+ */
+function allRulesPassing(): Record<string, { status: number; location?: string } | null> {
+  const routes: Record<string, { status: number; location?: string } | null> = {};
   for (const rule of LEGACY_RULES) {
     routes[`${APEX_BASE}${rule.prefix}/probe`] = expectedFor(rule);
+  }
+  for (const business of BRIDGED) {
+    routes[`https://${business.host}/`] = business.status === 'live' ? { status: 200 } : null;
   }
   return routes;
 }
@@ -86,7 +99,7 @@ describe('redirectGuard', () => {
    * redirect correct, and nothing at the other end of any of them.
    */
   it('fails when the store the rules point at does not resolve', async () => {
-    const routes: Record<string, { status: number; location?: string } | null> = allRulesPassing();
+    const routes = allRulesPassing();
     routes[`${STORE}/`] = null;
 
     const result = await redirectGuard(stub(routes), APEX_BASE);
@@ -95,7 +108,7 @@ describe('redirectGuard', () => {
   });
 
   it('accepts a store that answers 404 — the host is what is being tested', async () => {
-    const routes: Record<string, { status: number; location?: string }> = allRulesPassing();
+    const routes = allRulesPassing();
     routes[`${STORE}/`] = { status: 404 };
 
     const result = await redirectGuard(stub(routes), APEX_BASE);
@@ -103,7 +116,7 @@ describe('redirectGuard', () => {
   });
 
   it("fails when one of the hub's own paths is swallowed by a redirect", async () => {
-    const routes: Record<string, { status: number; location?: string }> = allRulesPassing();
+    const routes = allRulesPassing();
     routes[`${APEX_BASE}/licence`] = { status: 301, location: `${STORE}/licence` };
 
     const result = await redirectGuard(stub(routes), APEX_BASE);
@@ -277,5 +290,67 @@ describe('apexIdentity', () => {
   it('says so when the apex does not answer', async () => {
     const answer = await apexIdentity(stub({ [`${APEX_BASE}/api/health`]: null }));
     expect(answer).toBe('apex did not answer');
+  });
+});
+
+/**
+ * The bridged-host assertion, and the false alarm it caused on the day it
+ * shipped.
+ *
+ * The first version fired whenever a bridged host did not answer, regardless
+ * of what the card claimed. `audit` was already corrected to `building` by
+ * then, so the 07:40 run failed every morning with the words "Its card says
+ * live" against a card that said building. An alarm that is wrong daily is the
+ * one people learn to scroll past, and then the real one is missed too.
+ */
+describe('redirectGuard and a bridged host', () => {
+  const base: Business = {
+    id: 'bridged',
+    host: 'bridged.example.org',
+    name: 'Bridged',
+    tagline: '',
+    blurb: '',
+    status: 'building',
+    revenueModel: 'internal',
+    repo: 'Billy-Bad-Ass/fixture',
+    portfolioSlug: 'project-0',
+    highlights: [],
+    upstream: 'https://elsewhere.example.org/site/',
+  };
+
+  function rulesOnly() {
+    const routes: Record<string, { status: number; location?: string } | null> = {};
+    for (const rule of LEGACY_RULES) routes[`${APEX_BASE}${rule.prefix}/probe`] = expectedFor(rule);
+    return routes;
+  }
+
+  it('does not complain about a dormant bridge whose card says building', async () => {
+    const routes = rulesOnly();
+    routes[`https://${base.host}/`] = null;
+
+    const result = await redirectGuard(stub(routes), APEX_BASE, [base]);
+
+    expect(result.ok).toBe(true);
+    expect(result.log.join(' ')).toContain('bridged.example.org (bridged, building) → 0');
+  });
+
+  it('fails when a bridge whose card says live does not answer', async () => {
+    const routes = rulesOnly();
+    routes[`https://${base.host}/`] = null;
+
+    const result = await redirectGuard(stub(routes), APEX_BASE, [{ ...base, status: 'live' }]);
+
+    expect(result.ok).toBe(false);
+    expect(result.problems.join(' ')).toContain('door that does not open');
+  });
+
+  it('fails when a bridge is answering but its card still says building', async () => {
+    const routes = rulesOnly();
+    routes[`https://${base.host}/`] = { status: 200 };
+
+    const result = await redirectGuard(stub(routes), APEX_BASE, [base]);
+
+    expect(result.ok).toBe(false);
+    expect(result.problems.join(' ')).toContain('set it to live');
   });
 });

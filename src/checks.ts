@@ -87,7 +87,17 @@ async function probe(
  * guard whose subject is the path a paying customer walks has to walk all of
  * it.
  */
-export async function redirectGuard(fetcher: Fetcher, base: string): Promise<CheckResult> {
+export async function redirectGuard(
+  fetcher: Fetcher,
+  base: string,
+  /**
+   * The bridged businesses, by default the real ones. Overridable for the same
+   * reason `linkWarden` takes its list: the cases worth testing here are a
+   * dormant bridge and a working one, and which of those the register happens
+   * to hold today is not something a test should depend on.
+   */
+  bridged: readonly Business[] = BRIDGED,
+): Promise<CheckResult> {
   const problems: string[] = [];
   const log: string[] = [];
 
@@ -143,14 +153,41 @@ export async function redirectGuard(fetcher: Fetcher, base: string): Promise<Che
    * business with a `live` card and a dead front door, which is precisely the
    * failure the register's honesty rule exists to prevent.
    */
-  for (const business of BRIDGED) {
+  for (const business of bridged) {
     const { status } = await probe(fetcher, `https://${business.host}/`);
-    log.push(`${business.host} (bridged) → ${status}`);
-    if (status < 200 || status >= 400) {
+    const answered = status >= 200 && status < 400;
+    log.push(`${business.host} (bridged, ${business.status}) → ${status}`);
+
+    /**
+     * Only a `live` card is a promise, and only a promise can be broken.
+     *
+     * A bridge can be deployed before its hostname is routed to this Worker —
+     * that is the state `audit` is in — and asserting on it then produces a
+     * daily failure describing a card that does not exist. The first version
+     * of this loop did exactly that: it fired on 2026-09-03 against a business
+     * already corrected to `building`, with the words "Its card says live"
+     * against a card that said building.
+     *
+     * An alarm that is wrong every morning is worse than no alarm, because it
+     * is the one people learn to scroll past — and this repository has been
+     * caught by that twice already.
+     */
+    if (business.status === 'live' && !answered) {
       problems.push(
         `${business.host} is served by this hub from ${business.upstream} and answered ` +
           `${status}. Its card says live, so a customer is being shown a door that does ` +
           `not open.`,
+      );
+    }
+
+    // The other direction, and the reason this is not simply skipped: a
+    // bridged host that starts answering while its card still says `building`
+    // is a finished business nobody has switched on. That is the drift that
+    // hid the store for five days.
+    if (business.status !== 'live' && answered) {
+      problems.push(
+        `${business.host} is marked ${business.status} but answered ${status}. The bridge ` +
+          `is working — set it to live in src/businesses.ts.`,
       );
     }
   }
