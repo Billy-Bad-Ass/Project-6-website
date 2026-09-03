@@ -337,6 +337,65 @@ export async function linkWarden(
 }
 
 /**
+ * What each business host is actually serving, reported and never asserted.
+ *
+ * `linkWarden` asks whether a host answers. This asks what it answered *with*,
+ * and the difference has already cost this repository once: on 2026-08-29
+ * `audit.bbanetwork.org` returned `200` to every probe while serving the hub's
+ * own homepage. Every status check passed. The business behind that hostname
+ * was unreachable to a customer for five days, and nothing in this repository
+ * could have noticed, because nothing here had ever read the page.
+ *
+ * So the title of each page is recorded on every run. It is not asserted — a
+ * title is copy, and copy changes for good reasons that should not fail a
+ * check at three in the morning. It is written down so that a human flipping a
+ * register entry to `live`, or reading back a run that looked fine, can see
+ * which site actually answered rather than only that something did.
+ *
+ * Runner-only, like `apexIdentity` and for the same reason: from inside the
+ * Worker, a bridged host answers `522` and this would record the outage that
+ * is not happening.
+ */
+export async function hostIdentities(
+  fetcher: Fetcher,
+  businesses: readonly Business[] = BUSINESSES,
+): Promise<string[]> {
+  const lines: string[] = [];
+
+  for (const business of businesses) {
+    lines.push(`${business.id} (${business.host}) → ${await pageTitle(fetcher, `https://${business.host}/`)}`);
+  }
+
+  return lines;
+}
+
+/**
+ * The `<title>` of a page, or a plain statement of why there isn't one.
+ *
+ * Redirects are followed here, unlike everywhere else in this file: a hostname
+ * behind Cloudflare Access answers `302` to a login page, and "what is serving
+ * this host" is better answered by the page a visitor lands on than by the
+ * hop that got them there.
+ */
+async function pageTitle(fetcher: Fetcher, url: string): Promise<string> {
+  try {
+    const response = await fetcher(url);
+    if (!response.ok) return `answered ${response.status}, no page read`;
+
+    const body = await response.text();
+    const match = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(body);
+    if (!match) return `${response.status}, page has no title`;
+
+    // Collapsed and clipped: a title is for a human reading a run log, and one
+    // that wraps across four lines of console output is worse than a short one.
+    const title = match[1]!.replace(/\s+/g, ' ').trim();
+    return `${response.status} — ${title.length > 90 ? `${title.slice(0, 89)}…` : title}`;
+  } catch {
+    return 'did not answer';
+  }
+}
+
+/**
  * What is answering on the apex, reported and never asserted.
  *
  * When this check ran on a GitHub runner it could prove the custom domain was

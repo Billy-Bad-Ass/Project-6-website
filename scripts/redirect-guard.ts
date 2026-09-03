@@ -51,7 +51,7 @@
  */
 
 import { APEX } from '../src/businesses';
-import { apexIdentity, linkWarden, redirectGuard } from '../src/checks';
+import { apexIdentity, hostIdentities, linkWarden, redirectGuard } from '../src/checks';
 import { reportRun } from '../src/report';
 
 const env = {
@@ -89,6 +89,17 @@ console.log(`redirect-guard: ${await reportRun(env, {
 console.log('');
 const hosts = await linkWarden(fetch, undefined, false);
 for (const line of hosts.log) console.log(`  ${line}`);
+
+/**
+ * And what each of them actually served.
+ *
+ * Printed even when every status passed, because the failure this catches is
+ * the one where they all do: a hostname answering `200` with somebody else's
+ * site. Recorded, never asserted — see the note on `hostIdentities`.
+ */
+console.log('');
+for (const line of await hostIdentities(fetch)) console.log(`  ${line}`);
+console.log('');
 
 const hostSummary = hosts.ok
   ? 'Every business host answered, and the register agrees with all of them.'
