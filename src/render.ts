@@ -316,9 +316,8 @@ ${rule()}
   return layout({
     title: 'BBA Network — small products that solve one problem properly',
     description:
-      'BBA Network builds small, self-contained products: printable reference guides, ' +
-      'plain-English website health checks, and finished software you own outright. ' +
-      'Each runs on its own domain.',
+      'BBA Network builds small, self-contained products: plain-English website health ' +
+      'checks, and finished software you own outright. Each runs on its own domain.',
     path: '/',
     body,
   });
