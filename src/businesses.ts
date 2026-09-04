@@ -131,6 +131,15 @@ export const BUSINESSES: Business[] = [
     revenueModel: 'stripe-checkout',
     repo: 'Billy-Bad-Ass/network-store-2',
     portfolioSlug: 'project-2',
+    /**
+     * Off the hub since 2026-09-04, at Billy's request, and going back on
+     * later. `unlisted` rather than deleting the entry, because the store is
+     * still open and still taking checkout: /go/guides, the receipt redirects
+     * in src/redirects.ts and the licence terms all keep working, and a
+     * customer holding an old download link is not stranded. Putting it back
+     * is deleting this one line.
+     */
+    unlisted: true,
     priceHint: 'From $9.45',
     highlights: [
       'Espresso dial-in troubleshooting card',
